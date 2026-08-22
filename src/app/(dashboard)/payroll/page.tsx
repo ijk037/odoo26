@@ -35,6 +35,8 @@ import {
   PlusCircle,
   Star,
   DollarSign,
+  Edit,
+  Edit2,
 } from "lucide-react";
 
 const MONTH_NAMES = [
