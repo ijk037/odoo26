@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -13,28 +13,37 @@ import {
 import { Zap } from "lucide-react";
 
 export function OvertimeTrackerChart({ records = [] }: { records: any[] }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const userMap: Record<string, { name: string; regularHours: number; overtimeHours: number }> = {};
 
-  records.forEach((r) => {
-    const user = r.user;
-    const name = user?.profile?.firstName
-      ? `${user.profile.firstName} ${user.profile.lastName.slice(0, 1)}.`
-      : user?.email?.split("@")[0] || "Staff";
+  if (Array.isArray(records)) {
+    records.forEach((r) => {
+      if (!r) return;
+      const user = r.user;
+      const name = user?.profile?.firstName
+        ? `${user.profile.firstName} ${user.profile.lastName?.slice(0, 1) || ""}.`
+        : user?.email?.split("@")[0] || "Staff";
 
-    if (!userMap[name]) {
-      userMap[name] = {
-        name,
-        regularHours: 0,
-        overtimeHours: 0,
-      };
-    }
+      if (!userMap[name]) {
+        userMap[name] = {
+          name,
+          regularHours: 0,
+          overtimeHours: 0,
+        };
+      }
 
-    const reg = Math.min(8.5, r.workingHours || 0);
-    const ot = r.overtimeHours || Math.max(0, (r.workingHours || 0) - 8.5);
+      const reg = Math.min(8.5, r.workingHours || 0);
+      const ot = r.overtimeHours || Math.max(0, (r.workingHours || 0) - 8.5);
 
-    userMap[name].regularHours += reg;
-    userMap[name].overtimeHours += ot;
-  });
+      userMap[name].regularHours += reg;
+      userMap[name].overtimeHours += ot;
+    });
+  }
 
   const chartData = Object.values(userMap).slice(0, 6).map((item) => ({
     name: item.name,
@@ -58,30 +67,36 @@ export function OvertimeTrackerChart({ records = [] }: { records: any[] }) {
         </div>
       </div>
 
-      <div className="h-60 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 10 }}>
-            <XAxis dataKey="name" stroke="#151D22" fontSize={10} tickLine={true} axisLine={{ stroke: "#151D22", strokeWidth: 2 }} />
-            <YAxis stroke="#151D22" fontSize={10} tickLine={true} axisLine={{ stroke: "#151D22", strokeWidth: 2 }} />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "#FAF7F2",
-                border: "2px solid #151D22",
-                boxShadow: "3px 3px 0px 0px rgba(21,29,34,1)",
-                color: "#151D22",
-                fontFamily: "JetBrains Mono",
-                fontSize: "12px",
-                fontWeight: "bold",
-              }}
-              formatter={(value: any, name: any) => [`${value} hrs`, name]}
-            />
-            <Legend
-              wrapperStyle={{ fontSize: "10px", paddingTop: "8px", fontFamily: "JetBrains Mono", fontWeight: "bold" }}
-            />
-            <Bar dataKey="regularHours" name="Regular Hours" fill="#346645" stackId="a" stroke="#151D22" strokeWidth={1.5} />
-            <Bar dataKey="overtimeHours" name="Overtime (OT)" fill="#E6A938" stackId="a" stroke="#151D22" strokeWidth={1.5} />
-          </BarChart>
-        </ResponsiveContainer>
+      <div className="h-60 w-full min-h-[240px]">
+        {mounted ? (
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 10 }}>
+              <XAxis dataKey="name" stroke="#151D22" fontSize={10} tickLine={true} axisLine={{ stroke: "#151D22", strokeWidth: 2 }} />
+              <YAxis stroke="#151D22" fontSize={10} tickLine={true} axisLine={{ stroke: "#151D22", strokeWidth: 2 }} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "#FAF7F2",
+                  border: "2px solid #151D22",
+                  boxShadow: "3px 3px 0px 0px rgba(21,29,34,1)",
+                  color: "#151D22",
+                  fontFamily: "JetBrains Mono",
+                  fontSize: "12px",
+                  fontWeight: "bold",
+                }}
+                formatter={(value: any, name: any) => [`${value} hrs`, name]}
+              />
+              <Legend
+                wrapperStyle={{ fontSize: "10px", paddingTop: "8px", fontFamily: "JetBrains Mono", fontWeight: "bold" }}
+              />
+              <Bar dataKey="regularHours" name="Regular Hours" fill="#346645" stackId="a" stroke="#151D22" strokeWidth={1.5} />
+              <Bar dataKey="overtimeHours" name="Overtime (OT)" fill="#E6A938" stackId="a" stroke="#151D22" strokeWidth={1.5} />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="h-60 flex items-center justify-center text-xs text-[#717971]">
+            Loading overtime chart...
+          </div>
+        )}
       </div>
     </div>
   );
