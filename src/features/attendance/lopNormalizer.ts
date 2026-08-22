@@ -27,94 +27,47 @@ export interface ResolveDateParams {
   actorId?: string | null;
 }
 
-/**
- * Format a Date object to YYYY-MM-DD UTC string
- */
-export function formatDateToUTCString(date: Date): string {
-  const y = date.getUTCFullYear();
-  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(date.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
+// ponytail: stdlib ISO slice replaces custom padding logic
+export const formatDateToUTCString = (date: Date): string =>
+  new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
+    .toISOString()
+    .slice(0, 10);
 
-/**
- * Parse date string YYYY-MM-DD into UTC midnight Date object
- */
-export function parseDateStringToUTCDate(dateStr: string): Date {
-  const parts = dateStr.trim().split("-");
-  if (parts.length === 3) {
-    const year = parseInt(parts[0], 10);
-    const month = parseInt(parts[1], 10) - 1;
-    const day = parseInt(parts[2], 10);
-    return new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
-  }
-  const fallback = new Date(dateStr);
-  return new Date(Date.UTC(fallback.getUTCFullYear(), fallback.getUTCMonth(), fallback.getUTCDate(), 0, 0, 0, 0));
-}
+// ponytail: native ISO UTC parser replaces manual string split & int parsing
+export const parseDateStringToUTCDate = (dateStr: string): Date =>
+  new Date(`${dateStr.trim().slice(0, 10)}T00:00:00.000Z`);
 
 /**
  * calculateMonthlyAttendance(employeeId, month, year)
- * 
- * Computes monthly attendance reconciliation and Loss-of-Pay (LOP) analysis
- * without mutating database structures or breaking existing routes.
- * 
- * @param employeeId - User id (cuid) or Profile employeeId (e.g. "EMP-001")
- * @param month - Month 1-12 (or string "01"-"12" / "1"-"12")
- * @param year - Target year (e.g. 2026)
+ * Reconciles monthly logs to determine present days, approved leaves, and unauthorized LOP absences.
  */
 export async function calculateMonthlyAttendance(
   employeeId: string,
   month?: number | string,
   year?: number | string
 ): Promise<MonthlyAttendanceReconciliation> {
-  if (!employeeId) {
-    throw new Error("employeeId is required");
-  }
+  if (!employeeId) throw new Error("employeeId is required");
 
-  // 1. Resolve target employee / user
   const user = await prisma.user.findFirst({
     where: {
-      OR: [
-        { id: employeeId },
-        { profile: { employeeId: employeeId } },
-      ],
+      OR: [{ id: employeeId }, { profile: { employeeId } }],
     },
-    include: {
-      profile: true,
-    },
+    include: { profile: true },
   });
 
-  if (!user) {
-    throw new Error(`Employee not found: ${employeeId}`);
-  }
+  if (!user) throw new Error(`Employee not found: ${employeeId}`);
 
-  // 2. Resolve Year and Month (1-based: 1 = Jan, 12 = Dec)
   const now = new Date();
-  let parsedYear = year ? (typeof year === "string" ? parseInt(year, 10) : year) : now.getUTCFullYear();
-  let parsedMonth = month ? (typeof month === "string" ? parseInt(month, 10) : month) : now.getUTCMonth() + 1;
+  const parsedYear = Number(year) || now.getUTCFullYear();
+  const parsedMonth = Math.min(Math.max(Number(month) || now.getUTCMonth() + 1, 1), 12);
 
-  if (isNaN(parsedYear) || parsedYear < 1970 || parsedYear > 2100) {
-    parsedYear = now.getUTCFullYear();
-  }
-  if (isNaN(parsedMonth) || parsedMonth < 1 || parsedMonth > 12) {
-    parsedMonth = now.getUTCMonth() + 1;
-  }
-
-  // 3. Compute calendar boundary for target month
   const totalDays = new Date(Date.UTC(parsedYear, parsedMonth, 0)).getUTCDate();
   const startOfMonth = new Date(Date.UTC(parsedYear, parsedMonth - 1, 1, 0, 0, 0, 0));
   const endOfMonth = new Date(Date.UTC(parsedYear, parsedMonth - 1, totalDays, 23, 59, 59, 999));
 
-  // 4. Fetch daily attendance records and approved leaves for target month
   const [attendanceRecords, approvedLeaves] = await Promise.all([
     prisma.attendanceRecord.findMany({
-      where: {
-        userId: user.id,
-        date: {
-          gte: startOfMonth,
-          lte: endOfMonth,
-        },
-      },
+      where: { userId: user.id, date: { gte: startOfMonth, lte: endOfMonth } },
     }),
     prisma.leaveRequest.findMany({
       where: {
@@ -126,137 +79,77 @@ export async function calculateMonthlyAttendance(
     }),
   ]);
 
-  // Index attendance records by UTC date string YYYY-MM-DD
-  const attendanceMap = new Map<string, typeof attendanceRecords[0]>();
-  for (const record of attendanceRecords) {
-    const key = formatDateToUTCString(new Date(record.date));
-    attendanceMap.set(key, record);
-  }
-
-  // Helper to check if a specific day is within an approved leave request
-  const getApprovedLeave = (targetDate: Date) => {
-    return approvedLeaves.find((leave) => {
-      const leaveStart = new Date(
-        Date.UTC(
-          leave.startDate.getUTCFullYear(),
-          leave.startDate.getUTCMonth(),
-          leave.startDate.getUTCDate(),
-          0, 0, 0, 0
-        )
-      );
-      const leaveEnd = new Date(
-        Date.UTC(
-          leave.endDate.getUTCFullYear(),
-          leave.endDate.getUTCMonth(),
-          leave.endDate.getUTCDate(),
-          23, 59, 59, 999
-        )
-      );
-      return targetDate >= leaveStart && targetDate <= leaveEnd;
-    });
-  };
+  const attendanceMap = new Map(
+    attendanceRecords.map((r) => [formatDateToUTCString(new Date(r.date)), r])
+  );
 
   let presentDays = 0;
   let approvedLeaveDays = 0;
   let unauthorizedAbsenceDays = 0;
   const flaggedDates: ReconcileFlaggedDate[] = [];
 
-  // 5. Scan all calendar days in target month
   for (let day = 1; day <= totalDays; day++) {
     const calendarDate = new Date(Date.UTC(parsedYear, parsedMonth - 1, day, 0, 0, 0, 0));
     const dateKey = `${parsedYear}-${String(parsedMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     const record = attendanceMap.get(dateKey);
-    const approvedLeave = getApprovedLeave(calendarDate);
 
-    // Case A: Checked in / marked present
+    const isCoveredByLeave = approvedLeaves.some(
+      (l) => calendarDate >= new Date(l.startDate) && calendarDate <= new Date(l.endDate)
+    );
+
     const hasCheckIn = Boolean(
       record &&
-      (record.checkIn !== null ||
-        record.status === "PRESENT" ||
-        record.status === "LATE" ||
-        record.status === "HALF_DAY")
+        (record.checkIn !== null ||
+          ["PRESENT", "LATE", "HALF_DAY"].includes(record.status))
     );
 
     if (hasCheckIn) {
       presentDays++;
-      continue;
-    }
-
-    // Case B: Covered by an approved leave request
-    if (approvedLeave) {
+    } else if (isCoveredByLeave) {
       approvedLeaveDays++;
-      continue;
-    }
-
-    // Case C: Checked if previously marked as excused/resolved by HR in attendance notes
-    const isExcusedResolution = Boolean(
-      record &&
-      (record.status === "ON_LEAVE" ||
-        (record.notes &&
-          (record.notes.includes("[RESOLVED: EXCUSED]") ||
-            record.notes.includes("EXCUSED") ||
-            record.notes.includes("[RESOLVED]"))))
-    );
-
-    if (isExcusedResolution) {
+    } else if (
+      record?.status === "ON_LEAVE" ||
+      record?.notes?.includes("EXCUSED") ||
+      record?.notes?.includes("[RESOLVED]")
+    ) {
       approvedLeaveDays++;
       flaggedDates.push({
         date: dateKey,
         reason: record?.notes || "Excused absence resolved by HR",
         status: "RESOLVED",
       });
-      continue;
-    }
-
-    // Case D: Checked if explicitly confirmed as LOP by HR
-    const isConfirmedLOP = Boolean(
-      record &&
-      record.notes &&
-      (record.notes.includes("[RESOLVED: CONFIRMED_LOP]") ||
-        record.notes.includes("CONFIRMED_LOP"))
-    );
-
-    if (isConfirmedLOP) {
+    } else if (record?.notes?.includes("CONFIRMED_LOP")) {
       unauthorizedAbsenceDays++;
       flaggedDates.push({
         date: dateKey,
         reason: record?.notes || "Confirmed Loss-of-Pay (LOP) by HR",
         status: "RESOLVED",
       });
-      continue;
+    } else {
+      unauthorizedAbsenceDays++;
+      flaggedDates.push({
+        date: dateKey,
+        reason: record?.notes
+          ? `UNAUTHORIZED_ABSENCE: ${record.notes}`
+          : "UNAUTHORIZED_ABSENCE: No check-in log and no approved leave record found",
+        status: "FLAGGED",
+      });
     }
-
-    // Case E: Unauthorized Absence (NO check-in and NO approved leave record)
-    unauthorizedAbsenceDays++;
-    const absenceReason = record?.notes
-      ? `UNAUTHORIZED_ABSENCE: ${record.notes}`
-      : "UNAUTHORIZED_ABSENCE: No check-in log and no approved leave record found";
-
-    flaggedDates.push({
-      date: dateKey,
-      reason: absenceReason,
-      status: "FLAGGED",
-    });
   }
-
-  // 6. Compute payable days
-  const payableDays = presentDays + approvedLeaveDays;
 
   return {
     totalDays,
     presentDays,
     approvedLeaveDays,
     unauthorizedAbsenceDays,
-    payableDays,
+    payableDays: presentDays + approvedLeaveDays,
     flaggedDates,
   };
 }
 
 /**
  * resolveReconciliationDates
- * 
- * Allows HR to mark flagged dates as resolved/excused or confirmed LOP
- * without altering database schema definitions.
+ * Updates flagged absence dates to excused or confirmed LOP and creates audit logs.
  */
 export async function resolveReconciliationDates({
   employeeId,
@@ -266,87 +159,56 @@ export async function resolveReconciliationDates({
   reason,
   actorId,
 }: ResolveDateParams) {
-  if (!employeeId) {
-    throw new Error("employeeId is required");
-  }
-
-  const targetDates: string[] = [];
-  if (Array.isArray(dates) && dates.length > 0) {
-    targetDates.push(...dates);
-  } else if (date) {
-    targetDates.push(date);
-  }
-
-  if (targetDates.length === 0) {
-    throw new Error("At least one date is required for reconciliation resolution");
-  }
+  if (!employeeId) throw new Error("employeeId is required");
+  const targetDates = Array.isArray(dates) && dates.length > 0 ? dates : date ? [date] : [];
+  if (targetDates.length === 0) throw new Error("At least one date is required");
 
   const user = await prisma.user.findFirst({
-    where: {
-      OR: [
-        { id: employeeId },
-        { profile: { employeeId: employeeId } },
-      ],
-    },
-    include: {
-      profile: true,
-    },
+    where: { OR: [{ id: employeeId }, { profile: { employeeId } }] },
+    include: { profile: true },
   });
 
-  if (!user) {
-    throw new Error(`Employee not found: ${employeeId}`);
-  }
+  if (!user) throw new Error(`Employee not found: ${employeeId}`);
 
-  const normalizedResolution = resolution?.toUpperCase() || "RESOLVED";
-  const isExcused =
-    normalizedResolution === "EXCUSED" ||
-    normalizedResolution === "RESOLVED" ||
-    normalizedResolution === "APPROVED" ||
-    normalizedResolution === "EXCUSE";
+  const isExcused = ["EXCUSED", "RESOLVED", "APPROVED", "EXCUSE"].includes(
+    resolution?.toUpperCase() || ""
+  );
 
-  const updatedRecords = [];
+  const updatedRecords = await Promise.all(
+    targetDates.map(async (dateStr) => {
+      const utcDate = parseDateStringToUTCDate(dateStr);
+      const status = isExcused ? "ON_LEAVE" : "ABSENT";
+      const notePrefix = isExcused ? "[RESOLVED: EXCUSED]" : "[RESOLVED: CONFIRMED_LOP]";
+      const finalReason = reason ? `${notePrefix} ${reason.trim()}` : `${notePrefix} Processed by HR`;
 
-  for (const dateStr of targetDates) {
-    const utcDate = parseDateStringToUTCDate(dateStr);
-    const status = isExcused ? "ON_LEAVE" : "ABSENT";
-    const notePrefix = isExcused ? "[RESOLVED: EXCUSED]" : "[RESOLVED: CONFIRMED_LOP]";
-    const finalReason = reason ? `${notePrefix} ${reason.trim()}` : `${notePrefix} Processed by HR`;
-
-    const record = await prisma.attendanceRecord.upsert({
-      where: {
-        userId_date: {
+      const record = await prisma.attendanceRecord.upsert({
+        where: { userId_date: { userId: user.id, date: utcDate } },
+        update: { status, notes: finalReason },
+        create: {
           userId: user.id,
           date: utcDate,
+          status,
+          notes: finalReason,
+          workingHours: 0,
         },
-      },
-      update: {
-        status,
-        notes: finalReason,
-      },
-      create: {
-        userId: user.id,
-        date: utcDate,
-        status,
-        notes: finalReason,
-        workingHours: 0,
-      },
-    });
+      });
 
-    updatedRecords.push(record);
+      await createAuditLog({
+        actorId: actorId || null,
+        action: "ATTENDANCE_RECONCILE_RESOLVE",
+        entity: "AttendanceRecord",
+        entityId: record.id,
+        details: {
+          employeeId: user.profile?.employeeId || user.id,
+          date: dateStr,
+          resolution: isExcused ? "EXCUSED" : "CONFIRMED_LOP",
+          reason: reason || "Processed by HR reconciliation engine",
+        },
+      });
 
-    await createAuditLog({
-      actorId: actorId || null,
-      action: "ATTENDANCE_RECONCILE_RESOLVE",
-      entity: "AttendanceRecord",
-      entityId: record.id,
-      details: {
-        employeeId: user.profile?.employeeId || user.id,
-        date: dateStr,
-        resolution: isExcused ? "EXCUSED" : "CONFIRMED_LOP",
-        reason: reason || "Processed by HR reconciliation engine",
-      },
-    });
-  }
+      return record;
+    })
+  );
 
   return {
     success: true,
@@ -357,9 +219,7 @@ export async function resolveReconciliationDates({
   };
 }
 
-const lopNormalizer = {
+export default {
   calculateMonthlyAttendance,
   resolveReconciliationDates,
 };
-
-export default lopNormalizer;

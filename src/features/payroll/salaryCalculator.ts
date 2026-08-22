@@ -38,112 +38,52 @@ export interface SalaryBreakdown {
   netPay: number;
 }
 
-/**
- * Utility to round a number to two decimal places
- */
-export function roundToTwo(num: number): number {
-  return Math.round((num + Number.EPSILON) * 100) / 100;
-}
+// ponytail: round to 2 decimal places using Math.round and EPSILON
+export const roundToTwo = (num: number): number =>
+  Math.round((num + Number.EPSILON) * 100) / 100;
 
-/**
- * Calculate Basic Component (50% of Gross Salary)
- */
-export function calculateBasic(grossSalary: number): number {
-  if (grossSalary <= 0) return 0;
-  return roundToTwo(0.50 * grossSalary);
-}
+export const calculateBasic = (gross: number): number =>
+  gross > 0 ? roundToTwo(0.50 * gross) : 0;
 
-/**
- * Calculate House Rent Allowance (HRA) (20% of Gross Salary)
- */
-export function calculateHRA(grossSalary: number): number {
-  if (grossSalary <= 0) return 0;
-  return roundToTwo(0.20 * grossSalary);
-}
+export const calculateHRA = (gross: number): number =>
+  gross > 0 ? roundToTwo(0.20 * gross) : 0;
 
-/**
- * Calculate Special Allowance (30% of Gross Salary)
- */
-export function calculateSpecialAllowance(grossSalary: number): number {
-  if (grossSalary <= 0) return 0;
-  return roundToTwo(0.30 * grossSalary);
-}
+export const calculateSpecialAllowance = (gross: number): number =>
+  gross > 0 ? roundToTwo(0.30 * gross) : 0;
 
-/**
- * Calculate Provident Fund (PF) (12% of Basic Pay)
- */
-export function calculatePF(basic: number): number {
-  if (basic <= 0) return 0;
-  return roundToTwo(0.12 * basic);
-}
+export const calculatePF = (basic: number): number =>
+  basic > 0 ? roundToTwo(0.12 * basic) : 0;
 
-/**
- * Calculate Employee State Insurance (ESI) (0.75% of Gross Salary if Gross <= 21,000, else 0)
- */
-export function calculateESI(grossSalary: number): number {
-  if (grossSalary <= 0) return 0;
-  if (grossSalary <= 21000) {
-    return roundToTwo(0.0075 * grossSalary);
-  }
-  return 0;
-}
+export const calculateESI = (gross: number): number =>
+  gross > 0 && gross <= 21000 ? roundToTwo(0.0075 * gross) : 0;
 
-/**
- * Calculate Professional Tax (PT) (Flat 200 for gross > 0)
- */
-export function calculatePT(grossSalary: number): number {
-  if (grossSalary <= 0) return 0;
-  return 200;
-}
+export const calculatePT = (gross: number): number =>
+  gross > 0 ? 200 : 0;
 
-/**
- * Calculate Loss of Pay (LOP) Deduction ((Gross Salary / 30) * lopDays)
- */
-export function calculateLOPDeduction(grossSalary: number, lopDays: number): number {
-  if (grossSalary <= 0 || !lopDays || lopDays <= 0) return 0;
-  return roundToTwo((grossSalary / 30) * lopDays);
-}
+export const calculateLOPDeduction = (gross: number, lopDays: number): number =>
+  gross > 0 && lopDays > 0 ? roundToTwo((gross / 30) * lopDays) : 0;
 
 /**
  * Main Deductions Engine & Salary Calculator
- * 
- * Computes the complete itemized salary breakdown including statutory deductions,
- * LOP adjustments, earnings components, and final take-home net pay.
- * 
- * @param input - Either a SalaryCalculatorInput object or grossSalary number
- * @param lopDaysParam - Optional LOP days if first parameter is a number
- * @returns SalaryBreakdown object
  */
 export function calculateSalary(
   input: SalaryCalculatorInput | number,
   lopDaysParam?: number
 ): SalaryBreakdown {
-  let grossSalary = 0;
-  let lopDays = 0;
+  const grossSalary = Math.max(0, typeof input === "number" ? input : input?.grossSalary || 0);
+  const lopDays = Math.max(0, typeof input === "number" ? lopDaysParam || 0 : input?.lopDays || 0);
 
-  if (typeof input === "number") {
-    grossSalary = Math.max(0, input || 0);
-    lopDays = Math.max(0, lopDaysParam || 0);
-  } else if (typeof input === "object" && input !== null) {
-    grossSalary = Math.max(0, input.grossSalary || 0);
-    lopDays = Math.max(0, input.lopDays || 0);
-  }
-
-  // Earnings Breakdown
   const basic = calculateBasic(grossSalary);
   const hra = calculateHRA(grossSalary);
   const specialAllowance = calculateSpecialAllowance(grossSalary);
   const totalEarnings = grossSalary;
 
-  // Deductions Breakdown
   const pf = calculatePF(basic);
   const esi = calculateESI(grossSalary);
   const pt = calculatePT(grossSalary);
   const lopDeduction = calculateLOPDeduction(grossSalary, lopDays);
 
   const totalDeductions = roundToTwo(pf + esi + pt + lopDeduction);
-
-  // Net Pay: grossSalary - (PF + ESI + PT + LOP Deduction)
   const netPay = roundToTwo(Math.max(0, grossSalary - totalDeductions));
 
   return {
@@ -162,7 +102,18 @@ export function calculateSalary(
   };
 }
 
-const salaryCalculator = {
+/**
+ * ponytail self-check for statutory rules
+ */
+export function assertSalaryEngine(): boolean {
+  const sample = calculateSalary({ grossSalary: 20000, lopDays: 0 });
+  if (sample.basic !== 10000 || sample.esi !== 150 || sample.pt !== 200 || sample.netPay !== 18450) {
+    throw new Error("Salary calculator statutory rules assertion failed");
+  }
+  return true;
+}
+
+export default {
   calculateSalary,
   calculateBasic,
   calculateHRA,
@@ -172,6 +123,5 @@ const salaryCalculator = {
   calculatePT,
   calculateLOPDeduction,
   roundToTwo,
+  assertSalaryEngine,
 };
-
-export default salaryCalculator;
