@@ -19,7 +19,12 @@ export function QuickAttendanceWidget({ onAttendanceChange }: { onAttendanceChan
   const [fetching, setFetching] = useState(true);
   const [time, setTime] = useState<string>("");
   const [elapsed, setElapsed] = useState<string>("");
+  const [mounted, setMounted] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -122,7 +127,7 @@ export function QuickAttendanceWidget({ onAttendanceChange }: { onAttendanceChan
     <div className="flex items-center gap-2 bg-[#F4EFEA] border-2 border-[#151D22] p-1 px-2.5 shadow-[2px_2px_0px_0px_rgba(21,29,34,1)] font-mono text-xs">
       <div className="hidden sm:flex items-center gap-1.5 font-bold text-[#151D22]">
         <Clock className="w-3.5 h-3.5 text-[#346645]" />
-        <span>{time || "Live Clock"}</span>
+        <span suppressHydrationWarning>{mounted ? (time || "--:--:--") : "--:--:--"}</span>
       </div>
 
       <div className="hidden sm:block h-3.5 w-px bg-[#151D22]" />
@@ -136,7 +141,7 @@ export function QuickAttendanceWidget({ onAttendanceChange }: { onAttendanceChan
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 text-[11px] font-bold text-[#994621] bg-[#ffdbce] border border-[#994621] px-2 py-0.5">
             <span className="w-2 h-2 rounded-full bg-[#346645] animate-pulse" />
-            <span>{elapsed || `In: ${formatTime(todayRecord?.checkIn)}`}</span>
+            <span suppressHydrationWarning>{mounted ? (elapsed || `In: ${formatTime(todayRecord?.checkIn)}`) : "..."}</span>
           </div>
           <button
             type="button"

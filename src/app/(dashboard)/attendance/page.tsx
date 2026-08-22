@@ -236,7 +236,9 @@ export default function AttendancePage() {
                   <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 bg-[#E6A938] text-[#151D22] border border-[#151D22]">
                     Time Card
                   </span>
-                  <span className="text-xs font-bold text-[#414942]">{formatDate(new Date())}</span>
+                  <span className="text-xs font-bold text-[#414942]" suppressHydrationWarning>
+                    {formatDate(new Date())}
+                  </span>
                   {todayRecord?.isGeofenceVerified && (
                     <span className="text-[10px] font-bold text-[#346645] flex items-center gap-1 border border-[#346645] px-1.5 py-0.5 bg-[#d6edd9]">
                       <ShieldCheck className="w-3 h-3" />

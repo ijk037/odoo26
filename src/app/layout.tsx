@@ -15,7 +15,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="light">
+    <html lang="en" className="light" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
@@ -28,7 +28,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="bg-[#F4EFEA] text-[#151d22] font-mono min-h-screen antialiased selection:bg-[#346645] selection:text-white">
+      <body className="bg-[#F4EFEA] text-[#151d22] font-mono min-h-screen antialiased selection:bg-[#346645] selection:text-white" suppressHydrationWarning>
         <AuthProvider>
           <ToastProvider>{children}</ToastProvider>
         </AuthProvider>

@@ -247,7 +247,9 @@ export default function DashboardPage() {
               <span className="text-xs font-mono font-bold uppercase px-2 py-0.5 bg-[#E6A938] text-[#151D22] border border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]">
                 Daily Time Card
               </span>
-              <span className="text-xs font-mono font-bold text-[#414942]">{formatDate(new Date())}</span>
+              <span className="text-xs font-mono font-bold text-[#414942]" suppressHydrationWarning>
+                {formatDate(new Date())}
+              </span>
               {todayRecord?.isGeofenceVerified && (
                 <span className="text-[10px] font-mono font-bold text-[#346645] flex items-center gap-1 border border-[#346645] px-1.5 py-0.5 bg-[#d6edd9]">
                   <ShieldCheck className="w-3 h-3" />
@@ -275,7 +277,9 @@ export default function DashboardPage() {
             {todayRecord?.checkIn && !todayRecord?.checkOut && (
               <div className="text-center sm:text-right border border-[#151D22] p-2 bg-[#F4EFEA] shadow-[2px_2px_0px_0px_rgba(21,29,34,1)]">
                 <span className="text-[10px] font-mono uppercase font-bold text-[#717971] block">Elapsed Shift</span>
-                <span className="font-display-lg text-lg font-bold font-mono text-[#994621]">{elapsed || "00:00:00"}</span>
+                <span className="font-display-lg text-lg font-bold font-mono text-[#994621]" suppressHydrationWarning>
+                  {elapsed || "00:00:00"}
+                </span>
               </div>
             )}
 
