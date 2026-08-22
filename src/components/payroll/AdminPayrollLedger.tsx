@@ -5,6 +5,7 @@ import { PayrollLedgerRecord, PayrollRecordStatus, SalaryBreakdownData } from "@
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
 import { TableSkeleton } from "@/components/ui/LoadingSkeleton";
+import { generatePayslipPDF } from "@/components/payroll/PayslipDocument";
 import {
   CircleDollarSign,
   TrendingUp,
@@ -33,6 +34,7 @@ import {
   AlertTriangle,
   Info,
   SlidersHorizontal,
+  Download,
 } from "lucide-react";
 
 interface AdminPayrollLedgerProps {
@@ -1021,11 +1023,11 @@ export function AdminPayrollLedger({
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 px-6 border-t border-slate-800 bg-slate-950 flex items-center justify-between">
+            <div className="p-4 px-6 border-t border-slate-800 bg-slate-950 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleUpdateStatus(activeBreakdownRecord.userId, "Draft")}
-                  className={`px-3 py-1.5 rounded-xl font-semibold transition-colors ${
+                  className={`px-3 py-1.5 rounded-xl font-semibold text-xs transition-colors ${
                     activeBreakdownRecord.status === "Draft"
                       ? "bg-amber-600 text-white"
                       : "bg-slate-800 text-slate-400 hover:text-white"
@@ -1035,7 +1037,7 @@ export function AdminPayrollLedger({
                 </button>
                 <button
                   onClick={() => handleUpdateStatus(activeBreakdownRecord.userId, "Approved")}
-                  className={`px-3 py-1.5 rounded-xl font-semibold transition-colors ${
+                  className={`px-3 py-1.5 rounded-xl font-semibold text-xs transition-colors ${
                     activeBreakdownRecord.status === "Approved"
                       ? "bg-indigo-600 text-white"
                       : "bg-slate-800 text-slate-400 hover:text-white"
@@ -1045,7 +1047,7 @@ export function AdminPayrollLedger({
                 </button>
                 <button
                   onClick={() => handleUpdateStatus(activeBreakdownRecord.userId, "Paid")}
-                  className={`px-3 py-1.5 rounded-xl font-semibold transition-colors ${
+                  className={`px-3 py-1.5 rounded-xl font-semibold text-xs transition-colors ${
                     activeBreakdownRecord.status === "Paid"
                       ? "bg-emerald-600 text-white"
                       : "bg-slate-800 text-slate-400 hover:text-white"
@@ -1055,12 +1057,43 @@ export function AdminPayrollLedger({
                 </button>
               </div>
 
-              <button
-                onClick={() => setActiveBreakdownRecord(null)}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold transition-colors"
-              >
-                Done
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() =>
+                    generatePayslipPDF({
+                      month,
+                      year,
+                      employee: {
+                        employeeId: activeBreakdownRecord.employeeId,
+                        name: activeBreakdownRecord.name,
+                        department: activeBreakdownRecord.department,
+                        designation: activeBreakdownRecord.designation,
+                        email: activeBreakdownRecord.email,
+                        bankName: activeBreakdownRecord.bankName,
+                        accountNumber: activeBreakdownRecord.accountNumber,
+                        paymentMethod: activeBreakdownRecord.paymentMethod,
+                        totalDays: activeBreakdownRecord.totalDays || 30,
+                        payableDays: activeBreakdownRecord.payableDays || 30,
+                        lopDays: activeBreakdownRecord.lopDays,
+                      },
+                      breakdown: activeBreakdownRecord.breakdown,
+                      currency: activeBreakdownRecord.currency,
+                      status: activeBreakdownRecord.status,
+                    })
+                  }
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download PDF</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveBreakdownRecord(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition-colors"
+                >
+                  Done
+                </button>
+              </div>
             </div>
 
           </div>
