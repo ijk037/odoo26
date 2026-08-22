@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
-import { Building2, ShieldCheck, ArrowRight, Lock, Users, CalendarCheck } from "lucide-react";
+import { Building2, ShieldCheck, ArrowRight, Lock, Users, CalendarCheck, Sparkles } from "lucide-react";
 
 export default function HomePage() {
   const { user, loading, isAuthenticated } = useAuth();
@@ -17,108 +17,110 @@ export default function HomePage() {
   }, [loading, isAuthenticated, router]);
 
   return (
-    <div className="min-h-screen bg-[#080c14] text-slate-100 flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-[#F4EFEA] text-[#151D22] font-mono flex flex-col justify-between selection:bg-[#346645] selection:text-white">
       {/* Navbar */}
-      <header className="border-b border-slate-800/80 bg-[#090d16]/80 backdrop-blur-md px-6 py-4 flex items-center justify-between">
+      <header className="border-b-2 border-[#151D22] bg-[#FAF7F2] shadow-[0px_3px_0px_0px_rgba(21,29,34,1)] px-6 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25">
+          <div className="w-10 h-10 bg-[#346645] border-2 border-[#151D22] shadow-[2px_2px_0px_0px_rgba(21,29,34,1)] flex items-center justify-center text-white">
             <Building2 className="w-5 h-5" />
           </div>
           <div>
-            <span className="font-bold text-lg tracking-tight text-white">Dayflow</span>
-            <span className="text-[10px] ml-1.5 uppercase font-bold tracking-widest px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-              HRMS
-            </span>
+            <h1 className="font-display-lg text-xl font-extrabold uppercase tracking-tighter text-[#346645]">
+              Dayflow
+            </h1>
+            <p className="text-[10px] uppercase font-bold text-[#414942] tracking-wider">
+              Retro-Tactile HR Systems
+            </p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <Link
             href="/login"
-            className="text-xs font-semibold text-slate-300 hover:text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors"
+            className="retro-btn-secondary px-4 py-1.5 text-xs font-bold uppercase"
           >
             Sign In
           </Link>
           <Link
             href="/register"
-            className="text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg transition-all shadow-md shadow-indigo-600/30"
+            className="retro-btn-primary px-4 py-1.5 text-xs font-bold uppercase"
           >
-            Register Employee
+            Register
           </Link>
         </div>
       </header>
 
       {/* Hero */}
-      <main className="max-w-5xl mx-auto px-6 py-16 text-center space-y-8 flex-1 flex flex-col justify-center items-center">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-xs font-medium text-indigo-400">
-          <ShieldCheck className="w-4 h-4" />
-          <span>Phase 1 Architecture • Strict Server-Side RBAC & Data Isolation</span>
+      <main className="max-w-5xl mx-auto px-6 py-12 text-center space-y-6 flex-1 flex flex-col justify-center items-center">
+        <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#E6A938] border-2 border-[#151D22] shadow-[2px_2px_0px_0px_rgba(21,29,34,1)] text-xs font-bold text-[#151D22] uppercase">
+          <Sparkles className="w-4 h-4" />
+          <span>Retro-Tactile Enterprise HRMS • 16-Bit Cozy Brutalism</span>
         </div>
 
-        <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-white max-w-3xl leading-[1.15]">
-          Modern Human Resource Management with{" "}
-          <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-            Bulletproof RBAC
+        <h1 className="font-display-lg text-3xl md:text-5xl font-extrabold uppercase tracking-tight text-[#151D22] max-w-3xl leading-[1.2]">
+          Enterprise HR Operations with{" "}
+          <span className="bg-[#346645] text-white px-2 py-0.5 border-2 border-[#151D22] shadow-[3px_3px_0px_0px_rgba(21,29,34,1)] inline-block mt-1">
+            Tactile Utility
           </span>
         </h1>
 
-        <p className="text-slate-400 text-base md:text-lg max-w-2xl leading-relaxed">
-          Dayflow HRMS provides complete organizational data modeling, real-time attendance tracking, multi-tier leave approval workflows, and automated salary structures with strict role-based access control.
+        <p className="text-[#414942] text-xs md:text-sm max-w-2xl leading-relaxed">
+          Dayflow HRMS transforms workforce administration into an engaging, tactile experience. Featuring GPS geofence time tracking, automated leave quota policies, itemized payslip ledgers, and strict role-based access control.
         </p>
 
-        <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
+        <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
           <Link
             href="/login"
-            className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm px-6 py-3 rounded-xl shadow-lg shadow-indigo-600/30 transition-all hover:scale-[1.02]"
+            className="retro-btn-primary px-6 py-3 text-xs font-bold uppercase flex items-center gap-2"
           >
-            <span>Launch HRMS Dashboard</span>
+            <span>Launch Control Center</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
           <Link
             href="/register"
-            className="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-medium text-sm px-6 py-3 rounded-xl transition-all"
+            className="retro-btn-secondary px-6 py-3 text-xs font-bold uppercase"
           >
-            <span>Create New Profile</span>
+            <span>Create Profile</span>
           </Link>
         </div>
 
-        {/* Feature Highlights Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-12 text-left w-full">
-          <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 space-y-2">
-            <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-400 w-fit">
-              <Lock className="w-5 h-5" />
+        {/* Feature Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-8 text-left w-full">
+          <div className="retro-card p-5 bg-[#FAF7F2] space-y-2">
+            <div className="p-2 bg-[#ffdbce] border border-[#151D22] text-[#994621] w-fit">
+              <Lock className="w-4 h-4" />
             </div>
-            <h3 className="text-sm font-semibold text-white">Strict Role-Based Access</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Granular isolation separating Super Admin, HR Leaders, and Employees at database query and middleware levels.
+            <h3 className="font-display-lg text-sm font-bold uppercase text-[#151D22]">Strict RBAC Security</h3>
+            <p className="text-xs text-[#414942] leading-relaxed">
+              Complete data isolation distinguishing Super Admin, HR Director, and Employee permissions.
             </p>
           </div>
 
-          <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 space-y-2">
-            <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400 w-fit">
-              <CalendarCheck className="w-5 h-5" />
+          <div className="retro-card p-5 bg-[#FAF7F2] space-y-2">
+            <div className="p-2 bg-[#d6edd9] border border-[#151D22] text-[#346645] w-fit">
+              <CalendarCheck className="w-4 h-4" />
             </div>
-            <h3 className="text-sm font-semibold text-white">Attendance & Time Logs</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Automated check-in/out calculations, working hours deduction, late arrival detection, and historical calendar tracking.
+            <h3 className="font-display-lg text-sm font-bold uppercase text-[#151D22]">GPS Time Card & Shifts</h3>
+            <p className="text-xs text-[#414942] leading-relaxed">
+              Browser geolocation verification against headquarters geofences with shift penalty rules and overtime accounting.
             </p>
           </div>
 
-          <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 space-y-2">
-            <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-400 w-fit">
-              <Users className="w-5 h-5" />
+          <div className="retro-card p-5 bg-[#FAF7F2] space-y-2">
+            <div className="p-2 bg-[#ffdeac] border border-[#151D22] text-[#7b5500] w-fit">
+              <Users className="w-4 h-4" />
             </div>
-            <h3 className="text-sm font-semibold text-white">Leave & Payroll Pipeline</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Streamlined leave applications, HR multi-tier approval queue with audit logging, and automated salary structures.
+            <h3 className="font-display-lg text-sm font-bold uppercase text-[#151D22]">Payslip Ledger & Leaves</h3>
+            <p className="text-xs text-[#414942] leading-relaxed">
+              Dynamic leave balance quota tracking, 2-column itemized paystub reconciliation, and approval inbox.
             </p>
           </div>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-800/80 py-6 text-center text-xs text-slate-400">
-        Dayflow HRMS • Enterprise Grade Human Capital Management
+      <footer className="border-t-2 border-[#151D22] bg-[#FAF7F2] py-4 text-center text-xs font-bold uppercase text-[#717971]">
+        Dayflow HRMS • Retro-Tactile Enterprise Systems
       </footer>
     </div>
   );
