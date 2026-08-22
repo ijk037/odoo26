@@ -14,6 +14,12 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      setCollapsed(true);
+    }
+  }, []);
+
+  useEffect(() => {
     if (!loading && !isAuthenticated) {
       router.push(`/login?callbackUrl=${encodeURIComponent(pathname)}`);
     }

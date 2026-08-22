@@ -110,7 +110,7 @@ export function Header() {
     <header className="h-14 border-b-2 border-[#151D22] bg-[#FAF7F2] shadow-[0px_3px_0px_0px_rgba(21,29,34,1)] px-4 sm:px-6 flex items-center justify-between sticky top-0 z-40 transition-all">
       {/* Left: Title & Quick Search */}
       <div className="flex items-center gap-4">
-        <h2 className="font-display-lg text-sm sm:text-base font-bold uppercase tracking-tight text-[#151D22]">
+        <h2 className="font-display-lg text-xs sm:text-sm md:text-base font-bold uppercase tracking-tight text-[#151D22] truncate max-w-[130px] sm:max-w-none">
           {getPageTitle()}
         </h2>
 

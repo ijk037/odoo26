@@ -193,47 +193,47 @@ export default function DashboardPage() {
   return (
     <DashboardLayout>
       {/* Retro Metrics Banner (From admin_control_center_dayflow) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="retro-card p-4 flex flex-col justify-between h-28">
-          <span className="font-mono text-xs font-bold uppercase text-[#414942]">Headcount</span>
-          <span className="font-display-lg text-3xl font-extrabold text-[#151D22]">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+        <div className="retro-card p-3 sm:p-4 flex flex-col justify-between h-28 min-w-0 overflow-hidden">
+          <span className="font-mono text-[10px] sm:text-xs font-bold uppercase text-[#414942] truncate">Headcount</span>
+          <span className="font-display-lg text-xl sm:text-2xl lg:text-3xl font-extrabold text-[#151D22] truncate">
             {isAdmin || isHR ? stats.totalEmployees : `${stats.myTotalHours}h`}
           </span>
-          <span className="text-[10px] font-mono text-[#717971]">
+          <span className="text-[10px] font-mono text-[#717971] truncate">
             {isAdmin || isHR ? "5 Active Units" : "Logged Work Hours"}
           </span>
         </div>
 
-        <div className="retro-card p-4 flex flex-col justify-between h-28">
-          <span className="font-mono text-xs font-bold uppercase text-[#414942]">
+        <div className="retro-card p-3 sm:p-4 flex flex-col justify-between h-28 min-w-0 overflow-hidden">
+          <span className="font-mono text-[10px] sm:text-xs font-bold uppercase text-[#414942] truncate">
             {isAdmin || isHR ? "Today's Attendance" : "My Attendance Rate"}
           </span>
-          <span className="font-display-lg text-3xl font-extrabold text-[#346645]">
+          <span className="font-display-lg text-xl sm:text-2xl lg:text-3xl font-extrabold text-[#346645] truncate">
             {isAdmin || isHR ? `${stats.attendanceRate}%` : `${stats.myAttendanceRate}%`}
           </span>
-          <span className="text-[10px] font-mono text-[#717971]">
+          <span className="text-[10px] font-mono text-[#717971] truncate">
             {isAdmin || isHR ? `${stats.presentToday} Checked In` : "Rolling 30 Days"}
           </span>
         </div>
 
-        <div className="retro-card p-4 flex flex-col justify-between h-28">
-          <span className="font-mono text-xs font-bold uppercase text-[#414942]">Pending Approvals</span>
-          <span className="font-display-lg text-3xl font-extrabold text-[#994621]">
+        <div className="retro-card p-3 sm:p-4 flex flex-col justify-between h-28 min-w-0 overflow-hidden">
+          <span className="font-mono text-[10px] sm:text-xs font-bold uppercase text-[#414942] truncate">Pending Approvals</span>
+          <span className="font-display-lg text-xl sm:text-2xl lg:text-3xl font-extrabold text-[#994621] truncate">
             {isAdmin || isHR ? stats.pendingLeaves : stats.myPendingLeaves}
           </span>
-          <span className="text-[10px] font-mono text-[#717971]">
+          <span className="text-[10px] font-mono text-[#717971] truncate">
             {isAdmin || isHR ? "Requests in Queue" : "In Review"}
           </span>
         </div>
 
-        <div className="retro-card p-4 flex flex-col justify-between h-28">
-          <span className="font-mono text-xs font-bold uppercase text-[#414942]">
+        <div className="retro-card p-3 sm:p-4 flex flex-col justify-between h-28 min-w-0 overflow-hidden">
+          <span className="font-mono text-[10px] sm:text-xs font-bold uppercase text-[#414942] truncate">
             {isAdmin || isHR ? "Monthly Payroll" : "Net Take-Home"}
           </span>
-          <span className="font-display-lg text-2xl font-extrabold text-[#7b5500]">
+          <span className="font-display-lg text-lg sm:text-xl lg:text-2xl font-extrabold text-[#7b5500] truncate">
             {isAdmin || isHR ? formatCurrency(stats.monthlyPayroll) : formatCurrency(stats.myNetSalary)}
           </span>
-          <span className="text-[10px] font-mono text-[#717971]">
+          <span className="text-[10px] font-mono text-[#717971] truncate">
             {isAdmin || isHR ? "Processed Batch" : "Direct Deposit"}
           </span>
         </div>

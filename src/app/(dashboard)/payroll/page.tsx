@@ -254,26 +254,26 @@ export default function PayrollPage() {
     <DashboardLayout>
       {/* Attendance Reconciliation Sync Banner */}
       {reconcileSync && (
-        <div className="p-4 rounded-3xl bg-gradient-to-r from-indigo-950/80 via-purple-950/60 to-slate-900 border border-indigo-500/40 flex items-center justify-between gap-4 animate-in fade-in-50 shadow-xl">
-          <div className="flex items-center gap-3.5">
-            <div className="p-2.5 rounded-2xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 shrink-0">
+        <div className="retro-card p-4 bg-[#edf4fd] border-2 border-[#151D22] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-[2px_2px_0px_0px_rgba(21,29,34,1)] font-mono">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-[#d6edd9] border border-[#151D22] text-[#346645] shrink-0">
               <CheckCircle2 className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-white">Attendance Reconciled for Payroll</span>
-                <span className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                <span className="text-xs font-bold uppercase text-[#151D22]">Attendance Reconciled for Payroll</span>
+                <span className="text-[10px] uppercase font-bold px-1.5 py-0.2 bg-[#E6A938] text-[#151D22] border border-[#151D22]">
                   LOP Synced
                 </span>
               </div>
-              <p className="text-xs text-slate-300 mt-0.5">
-                Target Employee: <strong className="text-white font-mono">{reconcileSync.employeeId || "Selected"}</strong> • Payable Days: <strong className="text-emerald-400 font-mono">{reconcileSync.payableDays}/{reconcileSync.totalDays} Days</strong> • Loss of Pay Deductions: <strong className="text-rose-400 font-mono">{reconcileSync.lopDays} Days</strong>
+              <p className="text-xs text-[#414942] mt-0.5">
+                Target Employee: <strong className="text-[#151D22]">{reconcileSync.employeeId || "Selected"}</strong> • Payable: <strong className="text-[#346645]">{reconcileSync.payableDays}/{reconcileSync.totalDays} Days</strong> • LOP: <strong className="text-[#ba1a1a]">{reconcileSync.lopDays} Days</strong>
               </p>
             </div>
           </div>
           <button
             onClick={() => setReconcileSync(null)}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-1 border border-[#151D22] bg-[#FAF7F2] hover:bg-[#ffdad6] self-end sm:self-auto"
           >
             <X className="w-4 h-4" />
           </button>
