@@ -7,36 +7,64 @@ import { useToast } from "@/context/ToastContext";
 import { Badge } from "@/components/ui/Badge";
 import { TableSkeleton } from "@/components/ui/LoadingSkeleton";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { AdminPayrollLedger } from "@/components/payroll/AdminPayrollLedger";
+import { PayslipDocument, generatePayslipPDF } from "@/components/payroll/PayslipDocument";
+import { calculateSalary } from "@/features/payroll/salaryCalculator";
 import {
   CircleDollarSign,
   TrendingUp,
   Receipt,
   FileCheck,
-  Building2,
-  Calendar,
+  Percent,
   Layers,
-  ArrowUpRight,
   Sparkles,
+  FileSpreadsheet,
+  Clock,
+  ShieldCheck,
+  AlertTriangle,
+  Calendar,
+  Download,
   Printer,
+  User,
+  Building2,
+  ArrowUpRight,
   X,
   Loader2,
-  User,
   Info,
   CheckCircle2,
   PlusCircle,
-  Clock,
-  ShieldCheck,
   Star,
+  DollarSign,
+  Edit,
+  Edit2,
 } from "lucide-react";
+
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
 
 export default function PayrollPage() {
   const { user, isAdmin, isHR } = useAuth();
   const { toast } = useToast();
+  const currentDate = new Date();
 
+  const [activeTab, setActiveTab] = useState<"ledger" | "structures" | "my-payslip">("ledger");
   const [salaries, setSalaries] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedUserForPayslip, setSelectedUserForPayslip] = useState<any>(null);
+
+  // Selected Month & Year for Employee Self-Service
+  const [selectedMonth, setSelectedMonth] = useState<number>(currentDate.getUTCMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState<number>(currentDate.getUTCFullYear());
+  const [empReconciliation, setEmpReconciliation] = useState<{
+    totalDays: number;
+    payableDays: number;
+    lopDays: number;
+  }>({ totalDays: 30, payableDays: 30, lopDays: 0 });
+  const [loadingEmpRecon, setLoadingEmpRecon] = useState(false);
+
+  // Paystub computation modal state
   const [paystubData, setPaystubData] = useState<any>(null);
   const [paystubLoading, setPaystubLoading] = useState(false);
   const [paystubModalOpen, setPaystubModalOpen] = useState(false);
@@ -47,8 +75,37 @@ export default function PayrollPage() {
   const [editSalaryForm, setEditSalaryForm] = useState({
     userId: "",
     baseSalary: 6000,
+    allowances: 0,
     currency: "USD",
   });
+
+  // Reconciliation Sync State from URL params
+  const [reconcileSync, setReconcileSync] = useState<{
+    employeeId?: string;
+    month?: string;
+    year?: string;
+    payableDays?: string;
+    lopDays?: string;
+    totalDays?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const sp = new URLSearchParams(window.location.search);
+      const payableDays = sp.get("payableDays");
+      const lopDays = sp.get("lopDays");
+      if (payableDays || lopDays) {
+        setReconcileSync({
+          employeeId: sp.get("employeeId") || undefined,
+          month: sp.get("month") || undefined,
+          year: sp.get("year") || undefined,
+          payableDays: payableDays || "0",
+          lopDays: lopDays || "0",
+          totalDays: sp.get("totalDays") || "30",
+        });
+      }
+    }
+  }, []);
 
   const fetchSalaries = useCallback(async () => {
     try {
@@ -79,18 +136,43 @@ export default function PayrollPage() {
     fetchSalaries();
   }, [fetchSalaries]);
 
-  // Generate Itemized Paystub calculation
+  // Fetch employee's monthly attendance reconciliation for self-service payslip
+  const fetchEmployeeReconciliation = useCallback(async () => {
+    if (!user) return;
+    try {
+      setLoadingEmpRecon(true);
+      const params = new URLSearchParams({
+        month: String(selectedMonth),
+        year: String(selectedYear),
+      });
+      const res = await fetch(`/api/attendance/reconcile?${params.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setEmpReconciliation({
+          totalDays: data.totalDays || 30,
+          payableDays: data.payableDays ?? 30,
+          lopDays: data.unauthorizedAbsenceDays ?? 0,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to fetch employee attendance reconciliation:", err);
+    } finally {
+      setLoadingEmpRecon(false);
+    }
+  }, [user, selectedMonth, selectedYear]);
+
+  useEffect(() => {
+    fetchEmployeeReconciliation();
+  }, [fetchEmployeeReconciliation]);
+
+  // Generate Itemized Paystub calculation modal
   const handleOpenPaystub = async (targetUserId: string) => {
     setPaystubLoading(true);
     setPaystubModalOpen(true);
 
     try {
-      const now = new Date();
-      const currentMonth = now.getMonth() + 1;
-      const currentYear = now.getFullYear();
-
       const res = await fetch(
-        `/api/payroll/compute?userId=${targetUserId}&month=${currentMonth}&year=${currentYear}`
+        `/api/payroll/compute?userId=${targetUserId}&month=${selectedMonth}&year=${selectedYear}`
       );
       const data = await res.json();
 
@@ -126,6 +208,7 @@ export default function PayrollPage() {
         body: JSON.stringify({
           userId: editSalaryForm.userId,
           baseSalary: Number(editSalaryForm.baseSalary),
+          allowances: Number(editSalaryForm.allowances || 0),
           currency: editSalaryForm.currency,
         }),
       });
@@ -135,7 +218,7 @@ export default function PayrollPage() {
       if (!res.ok) {
         toast.error(data.error || "Failed to update salary structure", "Error");
       } else {
-        toast.success("Salary structure and allowances updated!", "Wage Structure Saved");
+        toast.success("Salary structure updated successfully!", "Wage Structure Saved");
         setEditModalOpen(false);
         await fetchSalaries();
       }
@@ -148,232 +231,325 @@ export default function PayrollPage() {
   };
 
   const mySalary = salaries.find((s) => s.userId === user?.id) || salaries[0];
-  const totalPayrollExpenditure = salaries.reduce((acc, s) => acc + (s.netSalary || 0), 0);
-  const avgSalary = salaries.length > 0 ? Math.round(totalPayrollExpenditure / salaries.length) : 6200;
+
+  // For regular employee, compute breakdown via deductions engine
+  const empGross = mySalary ? mySalary.baseSalary + (mySalary.allowances || 0) : 7500;
+  const empLopDays = reconcileSync?.lopDays ? Number(reconcileSync.lopDays) : empReconciliation.lopDays;
+  const empBreakdown = calculateSalary({ grossSalary: empGross, lopDays: empLopDays });
+
+  const employeeMeta = {
+    employeeId: user?.profile?.employeeId || "EMP-001",
+    name: user?.profile ? `${user.profile.firstName} ${user.profile.lastName}` : user?.email || "Employee",
+    department: user?.profile?.department || "General",
+    designation: user?.profile?.designation || "Team Member",
+    email: user?.email,
+    bankName: mySalary?.bankName,
+    accountNumber: mySalary?.accountNumber,
+    paymentMethod: mySalary?.paymentMethod || "Bank Transfer",
+    totalDays: empReconciliation.totalDays,
+    payableDays: empReconciliation.payableDays,
+    lopDays: empLopDays,
+  };
 
   return (
     <DashboardLayout>
-      {/* Header Section (From payroll_ledger_dayflow) */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b-2 border-[#151D22] pb-3">
-        <div>
-          <h2 className="font-display-lg text-2xl md:text-3xl font-extrabold uppercase text-[#151D22]">
-            Payslip Ledger
-          </h2>
-          <p className="font-mono text-xs text-[#414942] mt-1">
-            Current Fiscal Cycle | Ref: PAY-{new Date().getFullYear()}-0842 • Itemized Component Breakdown
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <div className="bg-[#E6A938] text-[#151D22] border-2 border-[#151D22] px-3 py-1.5 shadow-[2px_2px_0px_0px_rgba(21,29,34,1)] font-mono text-xs font-bold uppercase">
-            Status: Processed
-          </div>
-
-          {(isAdmin || isHR) && (
-            <button
-              onClick={() => {
-                setEditSalaryForm({
-                  userId: employees[0]?.id || "",
-                  baseSalary: 6500,
-                  currency: "USD",
-                });
-                setEditModalOpen(true);
-              }}
-              className="retro-btn-primary px-3.5 py-1.5 text-xs font-mono font-bold uppercase flex items-center gap-1.5"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>Update Wage Base</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Main Payslip Ledger Card (Exact Replica of payroll_ledger_dayflow with Decorative Pin) */}
-      <div className="retro-card-static p-6 md:p-8 bg-[#FAF7F2] relative space-y-6">
-        {/* Decorative Top Center Pin */}
-        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 retro-pin z-10 hidden md:block" />
-
-        {/* User Context & Action Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b-2 border-[#151D22]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#edf4fd] border-2 border-[#151D22] flex items-center justify-center font-bold text-sm font-mono text-[#151D22]">
-              {user?.profile?.firstName?.slice(0, 1) || "E"}
+      {/* Attendance Reconciliation Sync Banner */}
+      {reconcileSync && (
+        <div className="p-4 rounded-3xl bg-gradient-to-r from-indigo-950/80 via-purple-950/60 to-slate-900 border border-indigo-500/40 flex items-center justify-between gap-4 animate-in fade-in-50 shadow-xl">
+          <div className="flex items-center gap-3.5">
+            <div className="p-2.5 rounded-2xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 shrink-0">
+              <CheckCircle2 className="w-5 h-5" />
             </div>
             <div>
-              <span className="font-mono text-sm font-bold text-[#151D22] block">
-                {user?.profile ? `${user.profile.firstName} ${user.profile.lastName}` : user?.email}
-              </span>
-              <span className="font-mono text-xs text-[#414942]">
-                {user?.profile?.employeeId || "EMP-042"} • {user?.profile?.designation || "Staff Professional"}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-white">Attendance Reconciled for Payroll</span>
+                <span className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  LOP Synced
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-0.5">
+                Target Employee: <strong className="text-white font-mono">{reconcileSync.employeeId || "Selected"}</strong> • Payable Days: <strong className="text-emerald-400 font-mono">{reconcileSync.payableDays}/{reconcileSync.totalDays} Days</strong> • Loss of Pay Deductions: <strong className="text-rose-400 font-mono">{reconcileSync.lopDays} Days</strong>
+              </p>
             </div>
           </div>
-
           <button
-            onClick={() => handleOpenPaystub(user?.id || "")}
-            className="retro-btn-secondary px-4 py-2 text-xs font-mono font-bold uppercase flex items-center gap-2 self-start sm:self-auto"
+            onClick={() => setReconcileSync(null)}
+            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
           >
-            <Receipt className="w-4 h-4 text-[#346645]" />
-            <span>Generate Official Itemized Paystub</span>
+            <X className="w-4 h-4" />
           </button>
         </div>
+      )}
 
-        {/* Two-Column Earnings & Deductions Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-b-2 border-[#151D22] pb-6">
-          {/* Earnings Column */}
-          <div className="flex flex-col">
-            <div className="bg-[#E6A938] text-[#151D22] border-2 border-[#151D22] p-2.5 mb-2 flex justify-between items-center shadow-[2px_2px_0px_0px_rgba(21,29,34,1)]">
-              <h3 className="font-mono text-xs font-bold uppercase">Earnings & Allowances</h3>
-              <Sparkles className="w-4 h-4 text-[#151D22]" />
+      {/* Admin / HR View */}
+      {isAdmin || isHR ? (
+        <div className="space-y-6">
+          {/* Sub-view Navigation Tabs & Actions */}
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b-2 border-[#151D22] pb-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setActiveTab("ledger")}
+                className={`px-3.5 py-1.5 text-xs font-mono font-bold uppercase flex items-center gap-1.5 transition-all border-2 border-[#151D22] ${
+                  activeTab === "ledger"
+                    ? "bg-[#346645] text-white shadow-[2px_2px_0px_0px_rgba(21,29,34,1)]"
+                    : "bg-[#FAF7F2] text-[#151D22] hover:bg-[#edf4fd]"
+                }`}
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>Monthly Payroll Ledger (Run)</span>
+              </button>
+              <button
+                onClick={() => setActiveTab("structures")}
+                className={`px-3.5 py-1.5 text-xs font-mono font-bold uppercase flex items-center gap-1.5 transition-all border-2 border-[#151D22] ${
+                  activeTab === "structures"
+                    ? "bg-[#346645] text-white shadow-[2px_2px_0px_0px_rgba(21,29,34,1)]"
+                    : "bg-[#FAF7F2] text-[#151D22] hover:bg-[#edf4fd]"
+                }`}
+              >
+                <Layers className="w-4 h-4" />
+                <span>Salary Structure Master</span>
+              </button>
+              <button
+                onClick={() => setActiveTab("my-payslip")}
+                className={`px-3.5 py-1.5 text-xs font-mono font-bold uppercase flex items-center gap-1.5 transition-all border-2 border-[#151D22] ${
+                  activeTab === "my-payslip"
+                    ? "bg-[#346645] text-white shadow-[2px_2px_0px_0px_rgba(21,29,34,1)]"
+                    : "bg-[#FAF7F2] text-[#151D22] hover:bg-[#edf4fd]"
+                }`}
+              >
+                <Receipt className="w-4 h-4" />
+                <span>My Payslip Preview</span>
+              </button>
             </div>
 
-            <div className="border-2 border-[#151D22] border-b-0 divide-y-2 divide-[#151D22] bg-[#FAF7F2] font-mono text-xs">
-              <div className="flex justify-between items-center p-2.5 h-11 hover:bg-[#edf4fd]">
-                <span>Basic Pay (50%)</span>
-                <span className="font-bold">{formatCurrency(mySalary?.baseSalary || 3500)}</span>
-              </div>
-              <div className="flex justify-between items-center p-2.5 h-11 hover:bg-[#edf4fd]">
-                <span>HRA (House Rent 30%)</span>
-                <span className="font-bold">{formatCurrency(mySalary?.hra || 2100)}</span>
-              </div>
-              <div className="flex justify-between items-center p-2.5 h-11 hover:bg-[#edf4fd]">
-                <span>Transport Allowance</span>
-                <span className="font-bold">{formatCurrency(mySalary?.transportAllowance || 450)}</span>
-              </div>
-              <div className="flex justify-between items-center p-2.5 h-11 hover:bg-[#edf4fd] bg-[#d6edd9] text-[#151D22]">
-                <span className="flex items-center gap-1">
-                  <Star className="w-3.5 h-3.5 text-[#346645]" />
-                  <span>Special Allowance</span>
-                </span>
-                <span className="font-bold">{formatCurrency(mySalary?.specialAllowance || 950)}</span>
-              </div>
-            </div>
-
-            <div className="flex justify-between items-center border-2 border-[#151D22] p-3 bg-[#FAF7F2] mt-3 shadow-[2px_2px_0px_0px_rgba(21,29,34,1)] font-mono">
-              <span className="text-xs font-bold uppercase">Gross Monthly Earnings</span>
-              <span className="font-display-lg text-lg font-bold text-[#346645]">
-                {formatCurrency(mySalary?.grossSalary || 7000)}
-              </span>
-            </div>
-          </div>
-
-          {/* Deductions Column */}
-          <div className="flex flex-col">
-            <div className="bg-[#ffdbce] text-[#151D22] border-2 border-[#151D22] p-2.5 mb-2 flex justify-between items-center shadow-[2px_2px_0px_0px_rgba(21,29,34,1)]">
-              <h3 className="font-mono text-xs font-bold uppercase">Statutory Deductions</h3>
-              <ShieldCheck className="w-4 h-4 text-[#994621]" />
-            </div>
-
-            <div className="border-2 border-[#151D22] border-b-0 divide-y-2 divide-[#151D22] bg-[#FAF7F2] font-mono text-xs">
-              <div className="flex justify-between items-center p-2.5 h-11 hover:bg-[#edf4fd]">
-                <span>Provident Fund (PF 12%)</span>
-                <span className="font-bold text-[#ba1a1a]">-{formatCurrency(mySalary?.pf || 420)}</span>
-              </div>
-              <div className="flex justify-between items-center p-2.5 h-11 hover:bg-[#edf4fd]">
-                <span>Income Tax Withholding (10%)</span>
-                <span className="font-bold text-[#ba1a1a]">-{formatCurrency(mySalary?.tax || 350)}</span>
-              </div>
-              <div className="flex justify-between items-center p-2.5 h-11 hover:bg-[#edf4fd]">
-                <span>Loss of Pay (Unpaid LOP)</span>
-                <span className="font-bold text-[#414942]">$0.00</span>
-              </div>
-              <div className="flex justify-between items-center p-2.5 h-11 hover:bg-[#edf4fd] bg-[#FAF7F2]">
-                <span>Health & Insurance</span>
-                <span className="font-bold text-[#ba1a1a]">-$50.00</span>
-              </div>
-            </div>
-
-            <div className="flex justify-between items-center border-2 border-[#151D22] p-3 bg-[#FAF7F2] mt-3 shadow-[2px_2px_0px_0px_rgba(21,29,34,1)] font-mono">
-              <span className="text-xs font-bold uppercase text-[#994621]">Total Deductions</span>
-              <span className="font-display-lg text-lg font-bold text-[#ba1a1a]">
-                -{formatCurrency(mySalary?.totalDeductions || 820)}
-              </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setEditSalaryForm({
+                    userId: employees[0]?.id || "",
+                    baseSalary: 6500,
+                    allowances: 800,
+                    currency: "USD",
+                  });
+                  setEditModalOpen(true);
+                }}
+                className="retro-btn-primary px-3.5 py-1.5 text-xs font-mono font-bold uppercase flex items-center gap-1.5"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>Update Wage Base</span>
+              </button>
             </div>
           </div>
-        </div>
 
-        {/* Big Net Take-Home Pay Banner */}
-        <div className="p-5 bg-[#d6edd9] border-2 border-[#151D22] shadow-[3px_3px_0px_0px_rgba(21,29,34,1)] flex flex-col sm:flex-row sm:items-center justify-between gap-4 font-mono">
-          <div>
-            <span className="text-xs font-bold uppercase text-[#142c1e] block">Net Disbursed Take-Home Pay:</span>
-            <span className="text-xs text-[#1f412c]">Formula: Gross Earnings ($7,000.00) − Total Deductions ($820.00)</span>
-          </div>
-          <div className="font-display-lg text-2xl sm:text-3xl font-extrabold text-[#142c1e]">
-            {formatCurrency(mySalary?.netSalary || 6180)} / mo
-          </div>
-        </div>
-      </div>
+          {/* Sub-view 1: Admin Payroll Ledger */}
+          {activeTab === "ledger" && (
+            <AdminPayrollLedger
+              initialMonth={reconcileSync?.month ? Number(reconcileSync.month) : undefined}
+              initialYear={reconcileSync?.year ? Number(reconcileSync.year) : undefined}
+              syncedEmployeeId={reconcileSync?.employeeId}
+              syncedLopDays={reconcileSync?.lopDays ? Number(reconcileSync.lopDays) : undefined}
+              onRefreshNeeded={fetchSalaries}
+            />
+          )}
 
-      {/* Organization Salary Ledger Table (Admin / HR) */}
-      {(isAdmin || isHR) && (
-        <div className="retro-card overflow-hidden">
-          <div className="p-4 border-b-2 border-[#151D22] bg-[#FAF7F2] flex items-center justify-between">
-            <div>
-              <h3 className="font-display-lg text-base font-bold uppercase text-[#151D22]">Workforce Compensation Ledger</h3>
-              <p className="text-xs font-mono text-[#414942]">Active organizational wage parameters and itemized disbursements</p>
-            </div>
-            <span className="text-xs font-mono font-bold">{salaries.length} records</span>
-          </div>
+          {/* Sub-view 2: Master Salary Structures */}
+          {activeTab === "structures" && (
+            <div className="retro-card overflow-hidden">
+              <div className="p-4 border-b-2 border-[#151D22] bg-[#FAF7F2] flex items-center justify-between">
+                <div>
+                  <h3 className="font-display-lg text-base font-bold uppercase text-[#151D22]">Workforce Compensation Ledger</h3>
+                  <p className="text-xs font-mono text-[#414942]">Active organizational wage parameters and itemized salary structures</p>
+                </div>
+                <span className="text-xs font-mono font-bold">{salaries.length} records</span>
+              </div>
 
-          {loading ? (
-            <TableSkeleton rows={5} />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left retro-table border-collapse bg-[#FAF7F2]">
-                <thead>
-                  <tr className="font-mono text-xs">
-                    <th className="p-2.5">Employee</th>
-                    <th className="p-2.5">Base Pay</th>
-                    <th className="p-2.5">HRA & Allowances</th>
-                    <th className="p-2.5">Gross Pay</th>
-                    <th className="p-2.5">Deductions</th>
-                    <th className="p-2.5">Net Take-Home</th>
-                    <th className="p-2.5 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="font-mono text-xs divide-y divide-[#717971]">
-                  {salaries.map((s) => {
-                    const empProfile = s.user?.profile;
-                    const empName = empProfile
-                      ? `${empProfile.firstName} ${empProfile.lastName}`
-                      : s.user?.email || "Employee";
-
-                    return (
-                      <tr key={s.id} className="hover:bg-[#edf4fd] transition-colors">
-                        <td className="p-2.5">
-                          <span className="font-bold text-[#151D22] block">{empName}</span>
-                          <span className="text-[10px] text-[#717971]">{empProfile?.employeeId}</span>
-                        </td>
-                        <td className="p-2.5 font-bold">{formatCurrency(s.baseSalary)}</td>
-                        <td className="p-2.5 text-[#346645]">
-                          +{formatCurrency((s.hra || 0) + (s.transportAllowance || 0) + (s.specialAllowance || 0))}
-                        </td>
-                        <td className="p-2.5 font-bold">{formatCurrency(s.grossSalary)}</td>
-                        <td className="p-2.5 text-[#ba1a1a]">-{formatCurrency(s.totalDeductions)}</td>
-                        <td className="p-2.5 font-bold text-[#346645]">{formatCurrency(s.netSalary)}</td>
-                        <td className="p-2.5 text-right">
-                          <button
-                            onClick={() => handleOpenPaystub(s.userId)}
-                            className="retro-btn-secondary px-2 py-1 text-xs font-bold uppercase inline-flex items-center gap-1"
-                          >
-                            <Receipt className="w-3 h-3 text-[#346645]" />
-                            <span>Paystub</span>
-                          </button>
-                        </td>
+              {loading ? (
+                <TableSkeleton rows={5} />
+              ) : salaries.length === 0 ? (
+                <div className="p-8 text-center text-slate-500 text-xs font-mono">No salary records found.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left retro-table border-collapse bg-[#FAF7F2]">
+                    <thead>
+                      <tr className="font-mono text-xs">
+                        <th className="p-2.5">Employee</th>
+                        <th className="p-2.5">Base Pay</th>
+                        <th className="p-2.5">Allowances</th>
+                        <th className="p-2.5">Gross Pay</th>
+                        <th className="p-2.5">Payment Method</th>
+                        <th className="p-2.5">Cycle</th>
+                        <th className="p-2.5 text-right">Action</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody className="font-mono text-xs divide-y divide-[#717971]">
+                      {salaries.map((s) => {
+                        const empProfile = s.user?.profile;
+                        const empName = empProfile
+                          ? `${empProfile.firstName} ${empProfile.lastName}`
+                          : s.user?.email || "Employee";
+                        const gross = (s.baseSalary || 0) + (s.allowances || 0);
+
+                        return (
+                          <tr key={s.id} className="hover:bg-[#edf4fd] transition-colors">
+                            <td className="p-2.5">
+                              <span className="font-bold text-[#151D22] block">{empName}</span>
+                              <span className="text-[10px] text-[#717971]">{empProfile?.employeeId || "—"} • {empProfile?.department || "General"}</span>
+                            </td>
+                            <td className="p-2.5 font-bold">{formatCurrency(s.baseSalary, s.currency)}</td>
+                            <td className="p-2.5 text-[#346645]">
+                              +{formatCurrency(s.allowances || 0, s.currency)}
+                            </td>
+                            <td className="p-2.5 font-bold text-[#151D22]">{formatCurrency(gross, s.currency)}</td>
+                            <td className="p-2.5 text-[#414942]">{s.paymentMethod || "Bank Transfer"}</td>
+                            <td className="p-2.5">
+                              <span className="px-1.5 py-0.2 bg-[#edf4fd] border border-[#151D22] text-[10px] font-bold">
+                                {s.paymentCycle || "MONTHLY"}
+                              </span>
+                            </td>
+                            <td className="p-2.5 text-right whitespace-nowrap">
+                              <div className="inline-flex items-center gap-1.5">
+                                <button
+                                  onClick={() => handleOpenPaystub(s.userId)}
+                                  className="retro-btn-secondary px-2 py-1 text-xs font-bold uppercase inline-flex items-center gap-1"
+                                >
+                                  <Receipt className="w-3 h-3 text-[#346645]" />
+                                  <span>Paystub</span>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEditSalaryForm({
+                                      userId: s.userId,
+                                      baseSalary: s.baseSalary,
+                                      allowances: s.allowances || 0,
+                                      currency: s.currency || "USD",
+                                    });
+                                    setEditModalOpen(true);
+                                  }}
+                                  className="retro-btn-secondary px-2 py-1 text-xs font-bold uppercase inline-flex items-center gap-1"
+                                >
+                                  <Edit className="w-3 h-3" />
+                                  <span>Edit</span>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
+
+          {/* Sub-view 3: Admin's Own Payslip Preview */}
+          {activeTab === "my-payslip" && (
+            <div className="space-y-6 font-mono">
+              {/* Period Selector for Admin's Self Payslip */}
+              <div className="flex items-center justify-between gap-3 p-4 bg-[#FAF7F2] border-2 border-[#151D22] shadow-[2px_2px_0px_0px_rgba(21,29,34,1)] text-xs">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-[#553896]" />
+                  <span className="font-bold uppercase text-[#151D22]">Select Statement Period:</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                    className="p-1.5 retro-input font-bold"
+                  >
+                    {MONTH_NAMES.map((name, idx) => (
+                      <option key={idx + 1} value={idx + 1}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(Number(e.target.value))}
+                    className="p-1.5 retro-input font-bold"
+                  >
+                    {[2024, 2025, 2026, 2027].map((yr) => (
+                      <option key={yr} value={yr}>
+                        {yr}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <PayslipDocument
+                month={selectedMonth}
+                year={selectedYear}
+                employee={employeeMeta}
+                breakdown={empBreakdown}
+                currency={mySalary?.currency || "USD"}
+                status="Paid"
+              />
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Regular Employee View: Self-Service Portal & Payslip Download */
+        <div className="space-y-6 font-mono">
+          {/* Header Bar with Period Picker */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-[#FAF7F2] border-2 border-[#151D22] shadow-[3px_3px_0px_0px_rgba(21,29,34,1)]">
+            <div>
+              <h2 className="font-display-lg text-xl font-extrabold uppercase text-[#151D22] flex items-center gap-2">
+                <Receipt className="w-6 h-6 text-[#346645]" />
+                <span>My Salary & Monthly Payslips</span>
+              </h2>
+              <p className="text-xs text-[#414942]">
+                Download official PDF salary slips and review statutory deductions
+              </p>
+            </div>
+
+            {/* Period Selector */}
+            <div className="flex items-center gap-2 bg-[#F4EFEA] p-1.5 border border-[#151D22] text-xs">
+              <Calendar className="w-4 h-4 text-[#553896] ml-1" />
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                className="bg-transparent font-bold py-1 px-2 focus:outline-none cursor-pointer"
+              >
+                {MONTH_NAMES.map((name, idx) => (
+                  <option key={idx + 1} value={idx + 1} className="bg-white text-black">
+                    {name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                className="bg-transparent font-bold py-1 px-2 focus:outline-none cursor-pointer"
+              >
+                {[2024, 2025, 2026, 2027].map((yr) => (
+                  <option key={yr} value={yr} className="bg-white text-black">
+                    {yr}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Render Full Printable & Downloadable Payslip Document */}
+          <PayslipDocument
+            month={selectedMonth}
+            year={selectedYear}
+            employee={employeeMeta}
+            breakdown={empBreakdown}
+            currency={mySalary?.currency || "USD"}
+            status="Paid"
+            showDownloadButton={true}
+          />
         </div>
       )}
 
       {/* OFFICIAL ITEMIZED PAYSTUB MODAL */}
       {paystubModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in-50">
-          <div className="retro-card-static bg-[#FAF7F2] max-w-xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="retro-card-static bg-[#FAF7F2] max-w-xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto font-mono text-xs">
             <div className="flex items-center justify-between pb-3 border-b-2 border-[#151D22]">
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-[#d6edd9] border border-[#151D22] text-[#346645]">
@@ -395,12 +571,12 @@ export default function PayrollPage() {
             </div>
 
             {paystubLoading ? (
-              <div className="py-12 text-center text-xs font-mono">
+              <div className="py-12 text-center text-xs">
                 <Loader2 className="w-6 h-6 animate-spin mx-auto text-[#346645]" />
                 <p className="mt-2">Computing itemized reconciliation...</p>
               </div>
             ) : paystubData ? (
-              <div className="space-y-4 font-mono text-xs">
+              <div className="space-y-4">
                 {/* Employee Dossier Box */}
                 <div className="grid grid-cols-2 gap-2 p-3 bg-[#edf4fd] border border-[#151D22]">
                   <div>
@@ -478,8 +654,38 @@ export default function PayrollPage() {
                   </span>
                 </div>
 
-                {/* Print button */}
+                {/* Print and Download Actions */}
                 <div className="flex justify-end gap-2 pt-2 border-t border-[#151D22]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const emp = paystubData.user;
+                      generatePayslipPDF({
+                        month: selectedMonth,
+                        year: selectedYear,
+                        employee: {
+                          employeeId: emp?.profile?.employeeId || "EMP-001",
+                          name: emp?.profile ? `${emp.profile.firstName} ${emp.profile.lastName}` : "Employee",
+                          department: emp?.profile?.department || "General",
+                          designation: emp?.profile?.designation || "Staff",
+                          email: emp?.email,
+                          totalDays: 30,
+                          payableDays: 30 - (paystubData.deductions?.lopDays || 0),
+                          lopDays: paystubData.deductions?.lopDays || 0,
+                        },
+                        breakdown: calculateSalary({
+                          grossSalary: paystubData.earnings?.grossSalary || 6000,
+                          lopDays: paystubData.deductions?.lopDays || 0,
+                        }),
+                        currency: "USD",
+                        status: "Paid",
+                      });
+                    }}
+                    className="retro-btn-secondary px-4 py-2 text-xs font-bold uppercase flex items-center gap-1.5"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Download PDF</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => window.print()}
@@ -544,10 +750,21 @@ export default function PayrollPage() {
                 />
               </div>
 
+              <div>
+                <label className="block font-bold mb-1">Monthly Allowances (USD)</label>
+                <input
+                  type="number"
+                  step="50"
+                  value={editSalaryForm.allowances}
+                  onChange={(e) => setEditSalaryForm({ ...editSalaryForm, allowances: Number(e.target.value) })}
+                  className="w-full p-2 retro-input"
+                />
+              </div>
+
               <div className="p-3 bg-[#edf4fd] border border-[#151D22] text-[11px] space-y-1">
-                <span className="font-bold block text-[#346645]">Automated Salary Split Policy:</span>
-                <p>• Basic Pay: 50% | HRA: 30% | Transport: $450 | Special: Balance</p>
-                <p>• PF Withholding: 12% | Income Tax: 10%</p>
+                <span className="font-bold block text-[#346645]">Section 3.6 Automated Salary Engine:</span>
+                <p>• Basic: 50% | HRA: 20% | Special: 30%</p>
+                <p>• PF Withholding: 12% Basic | ESI: 0.75% (if &le; 21k) | PT: $200</p>
               </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-[#151D22]">

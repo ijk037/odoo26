@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { Badge } from "@/components/ui/Badge";
 import { TableSkeleton } from "@/components/ui/LoadingSkeleton";
+import { AttendanceReconciliationModal } from "@/components/attendance/AttendanceReconciliationModal";
 import { formatDate, formatTime } from "@/lib/utils";
 import { AttendanceHeatmap } from "@/components/analytics/AttendanceHeatmap";
 import { DepartmentPresenceChart } from "@/components/analytics/DepartmentPresenceChart";
@@ -30,6 +31,7 @@ import {
   Award,
   TrendingUp,
   Loader2,
+  ShieldAlert,
 } from "lucide-react";
 
 export default function AttendancePage() {
@@ -45,6 +47,8 @@ export default function AttendancePage() {
   const [elapsed, setElapsed] = useState("");
 
   const [geoPunchModalOpen, setGeoPunchModalOpen] = useState(false);
+  const [reconciliationModalOpen, setReconciliationModalOpen] = useState(false);
+  const [selectedReconcileEmp, setSelectedReconcileEmp] = useState<string | undefined>(undefined);
 
   // Manual Adjust Modal
   const [adjustModalOpen, setAdjustModalOpen] = useState(false);
@@ -190,38 +194,55 @@ export default function AttendancePage() {
           </p>
         </div>
 
-        {/* Tab Controls */}
-        <div className="flex items-center gap-1.5 bg-[#FAF7F2] p-1 border-2 border-[#151D22] shadow-[2px_2px_0px_0px_rgba(21,29,34,1)]">
-          <button
-            onClick={() => setActiveTab("ledger")}
-            className={`px-3 py-1 text-xs font-bold uppercase transition-all ${
-              activeTab === "ledger"
-                ? "bg-[#346645] text-white border border-[#151D22]"
-                : "text-[#151D22] hover:bg-[#edf4fd]"
-            }`}
-          >
-            Ledger & Time Clock
-          </button>
-          <button
-            onClick={() => setActiveTab("analytics")}
-            className={`px-3 py-1 text-xs font-bold uppercase transition-all ${
-              activeTab === "analytics"
-                ? "bg-[#346645] text-white border border-[#151D22]"
-                : "text-[#151D22] hover:bg-[#edf4fd]"
-            }`}
-          >
-            Visual Analytics
-          </button>
-          <button
-            onClick={() => setActiveTab("shifts")}
-            className={`px-3 py-1 text-xs font-bold uppercase transition-all ${
-              activeTab === "shifts"
-                ? "bg-[#346645] text-white border border-[#151D22]"
-                : "text-[#151D22] hover:bg-[#edf4fd]"
-            }`}
-          >
-            Shift Policy
-          </button>
+        {/* Tab Controls & Header Actions */}
+        <div className="flex flex-wrap items-center gap-2">
+          {(isAdmin || isHR) && (
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedReconcileEmp(undefined);
+                setReconciliationModalOpen(true);
+              }}
+              className="px-3 py-1 text-xs font-bold uppercase flex items-center gap-1.5 text-white bg-[#553896] hover:bg-[#462d7c] border border-[#151D22] shadow-[2px_2px_0px_0px_rgba(21,29,34,1)] transition-all active:translate-x-0.5 active:translate-y-0.5"
+              title="Audit absences and resolve Loss of Pay"
+            >
+              <ShieldAlert className="w-3.5 h-3.5 text-purple-200" />
+              <span>Reconciliation & LOP</span>
+            </button>
+          )}
+
+          <div className="flex items-center gap-1 bg-[#FAF7F2] p-1 border-2 border-[#151D22] shadow-[2px_2px_0px_0px_rgba(21,29,34,1)]">
+            <button
+              onClick={() => setActiveTab("ledger")}
+              className={`px-3 py-1 text-xs font-bold uppercase transition-all ${
+                activeTab === "ledger"
+                  ? "bg-[#346645] text-white border border-[#151D22]"
+                  : "text-[#151D22] hover:bg-[#edf4fd]"
+              }`}
+            >
+              Ledger & Time Clock
+            </button>
+            <button
+              onClick={() => setActiveTab("analytics")}
+              className={`px-3 py-1 text-xs font-bold uppercase transition-all ${
+                activeTab === "analytics"
+                  ? "bg-[#346645] text-white border border-[#151D22]"
+                  : "text-[#151D22] hover:bg-[#edf4fd]"
+              }`}
+            >
+              Visual Analytics
+            </button>
+            <button
+              onClick={() => setActiveTab("shifts")}
+              className={`px-3 py-1 text-xs font-bold uppercase transition-all ${
+                activeTab === "shifts"
+                  ? "bg-[#346645] text-white border border-[#151D22]"
+                  : "text-[#151D22] hover:bg-[#edf4fd]"
+              }`}
+            >
+              Shift Policy
+            </button>
+          </div>
         </div>
       </div>
 
@@ -443,28 +464,42 @@ export default function AttendancePage() {
                             {r.isGeofenceVerified ? "📍 HQ Geofence (Verified)" : "🌐 Remote / Client"}
                           </td>
                           {(isAdmin || isHR) && (
-                            <td className="p-2.5 text-right">
-                              <button
-                                onClick={() => {
-                                  const d = new Date(r.date).toISOString().slice(0, 10);
-                                  setAdjustData({
-                                    userId: r.userId,
-                                    date: d,
-                                    checkIn: r.checkIn ? new Date(r.checkIn).toTimeString().slice(0, 5) : "09:00",
-                                    checkOut: r.checkOut ? new Date(r.checkOut).toTimeString().slice(0, 5) : "17:30",
-                                    status: r.status,
-                                    shiftType: r.shiftType || "GENERAL",
-                                    workingHours: r.workingHours || 8.5,
-                                    overtimeHours: r.overtimeHours || 0.0,
-                                    notes: r.notes || "",
-                                  });
-                                  setAdjustModalOpen(true);
-                                }}
-                                className="retro-btn-secondary px-2 py-0.5 text-xs font-bold uppercase inline-flex items-center gap-1"
-                              >
-                                <Edit2 className="w-3 h-3" />
-                                <span>Edit</span>
-                              </button>
+                            <td className="p-2.5 text-right whitespace-nowrap">
+                              <div className="inline-flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedReconcileEmp(empProfile?.employeeId || r.userId);
+                                    setReconciliationModalOpen(true);
+                                  }}
+                                  className="retro-btn-secondary px-2 py-0.5 text-xs font-bold uppercase inline-flex items-center gap-1 text-[#553896]"
+                                  title="Audit & reconcile absences for payroll"
+                                >
+                                  <ShieldAlert className="w-3 h-3" />
+                                  <span>Reconcile</span>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const d = new Date(r.date).toISOString().slice(0, 10);
+                                    setAdjustData({
+                                      userId: r.userId,
+                                      date: d,
+                                      checkIn: r.checkIn ? new Date(r.checkIn).toTimeString().slice(0, 5) : "09:00",
+                                      checkOut: r.checkOut ? new Date(r.checkOut).toTimeString().slice(0, 5) : "17:30",
+                                      status: r.status,
+                                      shiftType: r.shiftType || "GENERAL",
+                                      workingHours: r.workingHours || 8.5,
+                                      overtimeHours: r.overtimeHours || 0.0,
+                                      notes: r.notes || "",
+                                    });
+                                    setAdjustModalOpen(true);
+                                  }}
+                                  className="retro-btn-secondary px-2 py-0.5 text-xs font-bold uppercase inline-flex items-center gap-1"
+                                >
+                                  <Edit2 className="w-3 h-3" />
+                                  <span>Edit</span>
+                                </button>
+                              </div>
                             </td>
                           )}
                         </tr>
@@ -547,6 +582,14 @@ export default function AttendancePage() {
         onClose={() => setGeoPunchModalOpen(false)}
         todayRecord={todayRecord}
         onSuccess={() => fetchAttendance()}
+      />
+
+      {/* Attendance Reconciliation Modal */}
+      <AttendanceReconciliationModal
+        isOpen={reconciliationModalOpen}
+        onClose={() => setReconciliationModalOpen(false)}
+        initialEmployeeId={selectedReconcileEmp}
+        onReconciliationUpdated={fetchAttendance}
       />
 
       {/* Manual Adjust Modal */}
