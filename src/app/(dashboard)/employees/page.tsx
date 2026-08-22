@@ -210,6 +210,28 @@ export default function EmployeesPage() {
     setEditModalOpen(true);
   };
 
+  const handleDownloadEmployeesCSV = () => {
+    const headers = ["Employee ID", "First Name", "Last Name", "Email", "Role", "Department", "Designation", "Phone", "Base Salary", "Joining Date"];
+    const rows = employees.map((emp) => [
+      `"${emp.profile?.employeeId || ""}"`,
+      `"${emp.profile?.firstName || ""}"`,
+      `"${emp.profile?.lastName || ""}"`,
+      `"${emp.email}"`,
+      `"${emp.role}"`,
+      `"${emp.profile?.department || "General"}"`,
+      `"${emp.profile?.designation || "Staff"}"`,
+      `"${emp.profile?.phone || ""}"`,
+      `"${emp.salary?.baseSalary || 6000}"`,
+      `"${formatDate(emp.profile?.joiningDate || emp.createdAt)}"`,
+    ]);
+    const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `dayflow-workforce-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+  };
+
   return (
     <DashboardLayout>
       {/* Header */}
@@ -223,15 +245,23 @@ export default function EmployeesPage() {
           </p>
         </div>
 
-        {(isAdmin || isHR) && (
+        <div className="flex items-center gap-2">
           <button
-            onClick={() => setCreateModalOpen(true)}
-            className="retro-btn-primary px-4 py-2 text-xs font-mono font-bold uppercase flex items-center gap-1.5 self-start sm:self-auto"
+            onClick={handleDownloadEmployeesCSV}
+            className="retro-btn-secondary px-3 py-2 text-xs font-mono font-bold uppercase flex items-center gap-1.5 self-start sm:self-auto"
           >
-            <UserPlus className="w-4 h-4" />
-            <span>Onboard New Employee</span>
+            <span>Export CSV</span>
           </button>
-        )}
+          {(isAdmin || isHR) && (
+            <button
+              onClick={() => setCreateModalOpen(true)}
+              className="retro-btn-primary px-4 py-2 text-xs font-mono font-bold uppercase flex items-center gap-1.5 self-start sm:self-auto"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>Onboard New Employee</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Filter & Search Bar */}

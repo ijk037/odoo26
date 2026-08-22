@@ -103,6 +103,28 @@ export default function AttendancePage() {
     fetchEmployeesList();
   }, [fetchAttendance, fetchEmployeesList]);
 
+  const handleDownloadAttendanceCSV = () => {
+    const headers = ["Date", "Employee Email", "Employee Name", "Department", "Check In", "Check Out", "Working Hours", "Overtime", "Status", "Geofence"];
+    const rows = records.map((r) => [
+      `"${new Date(r.date).toISOString().slice(0, 10)}"`,
+      `"${r.user?.email || ""}"`,
+      `"${r.user?.profile ? `${r.user.profile.firstName} ${r.user.profile.lastName}` : ""}"`,
+      `"${r.user?.profile?.department || "General"}"`,
+      `"${r.checkIn ? formatTime(r.checkIn) : ""}"`,
+      `"${r.checkOut ? formatTime(r.checkOut) : ""}"`,
+      `"${r.workingHours || 0}"`,
+      `"${r.overtimeHours || 0}"`,
+      `"${r.status}"`,
+      `"${r.isGeofenceVerified ? "HQ Verified" : "Remote"}"`,
+    ]);
+    const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `dayflow-attendance-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+  };
+
   const todayStr = new Date().toISOString().slice(0, 10);
   const todayRecord = records.find((r) => {
     const dStr = new Date(r.date).toISOString().slice(0, 10);
@@ -407,7 +429,15 @@ export default function AttendancePage() {
               <h3 className="font-display-lg text-sm font-bold uppercase text-[#151D22]">
                 Attendance Ledger & Geolocation Logs
               </h3>
-              <span className="text-xs font-bold text-[#414942]">{records.length} records</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleDownloadAttendanceCSV}
+                  className="retro-btn-primary px-2.5 py-1 text-xs font-bold uppercase flex items-center gap-1"
+                >
+                  <span>Export CSV</span>
+                </button>
+                <span className="text-xs font-bold text-[#414942]">{records.length} records</span>
+              </div>
             </div>
 
             {loading ? (

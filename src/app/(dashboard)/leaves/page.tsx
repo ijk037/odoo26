@@ -256,6 +256,29 @@ export default function LeavesPage() {
 
   const pendingLeaves = leaves.filter((l) => l.status === "PENDING");
 
+  const handleDownloadLeavesCSV = () => {
+    const headers = ["Applicant Email", "Applicant Name", "Department", "Leave Type", "Start Date", "End Date", "Days Count", "Reason", "Status", "Rejection Reason", "Applied Date"];
+    const rows = leaves.map((l) => [
+      `"${l.user?.email || ""}"`,
+      `"${l.user?.profile ? `${l.user.profile.firstName} ${l.user.profile.lastName}` : ""}"`,
+      `"${l.user?.profile?.department || "General"}"`,
+      `"${l.leaveType}"`,
+      `"${formatDate(l.startDate)}"`,
+      `"${formatDate(l.endDate)}"`,
+      `"${l.daysCount}"`,
+      `"${(l.reason || "").replace(/"/g, '""')}"`,
+      `"${l.status}"`,
+      `"${(l.rejectionReason || "").replace(/"/g, '""')}"`,
+      `"${formatDate(l.createdAt)}"`,
+    ]);
+    const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `dayflow-leaves-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+  };
+
   return (
     <DashboardLayout>
       {/* Header */}
@@ -403,7 +426,15 @@ export default function LeavesPage() {
           <h3 className="font-display-lg text-sm font-bold uppercase text-[#151D22]">
             {isAdmin || isHR ? "Organization Leave Records" : "My Leave History"}
           </h3>
-          <span className="text-xs font-bold text-[#414942]">{leaves.length} records</span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownloadLeavesCSV}
+              className="retro-btn-primary px-2.5 py-1 text-xs font-bold uppercase flex items-center gap-1"
+            >
+              <span>Export CSV</span>
+            </button>
+            <span className="text-xs font-bold text-[#414942]">{leaves.length} records</span>
+          </div>
         </div>
 
         {loading ? (

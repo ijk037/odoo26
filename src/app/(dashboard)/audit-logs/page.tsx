@@ -88,6 +88,26 @@ export default function AuditLogsPage() {
     );
   });
 
+  const handleDownloadCSV = () => {
+    const headers = ["Timestamp", "Actor Name", "Actor Email", "Action", "Entity", "Entity ID", "IP Address", "Details"];
+    const rows = filteredLogs.map((l) => [
+      `"${new Date(l.createdAt).toISOString()}"`,
+      `"${l.actor?.profile ? `${l.actor.profile.firstName} ${l.actor.profile.lastName}` : "System"}"`,
+      `"${l.actor?.email || "system@dayflow.internal"}"`,
+      `"${l.action}"`,
+      `"${l.entity}"`,
+      `"${l.entityId || ""}"`,
+      `"${l.ipAddress || "127.0.0.1"}"`,
+      `"${(l.details || "").replace(/"/g, '""')}"`,
+    ]);
+    const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `dayflow-audit-trail-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+  };
+
   return (
     <DashboardLayout>
       {/* Header */}
@@ -101,8 +121,16 @@ export default function AuditLogsPage() {
           </p>
         </div>
 
-        <div className="bg-[#E6A938] text-[#151D22] border-2 border-[#151D22] px-3 py-1 text-xs font-bold uppercase shadow-[2px_2px_0px_0px_rgba(21,29,34,1)]">
-          Audit Stream Active
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleDownloadCSV}
+            className="retro-btn-primary px-3 py-1.5 text-xs font-mono font-bold uppercase flex items-center gap-1.5"
+          >
+            <span>Export CSV</span>
+          </button>
+          <div className="bg-[#E6A938] text-[#151D22] border-2 border-[#151D22] px-3 py-1 text-xs font-bold uppercase shadow-[2px_2px_0px_0px_rgba(21,29,34,1)]">
+            Audit Stream Active
+          </div>
         </div>
       </div>
 
