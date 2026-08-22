@@ -95,8 +95,9 @@ export default function PayrollPage() {
       const data = await res.json();
 
       if (res.ok) {
-        setPaystubData(data);
-        setSelectedUserForPayslip(data.user);
+        const stub = data.paystubs || data;
+        setPaystubData(stub);
+        setSelectedUserForPayslip(stub.user);
       } else {
         toast.error(data.error || "Failed to compute paystub", "Error");
         setPaystubModalOpen(false);
@@ -381,7 +382,7 @@ export default function PayrollPage() {
                 <div>
                   <h3 className="font-display-lg text-base font-bold uppercase text-[#151D22]">Official Itemized Paystub</h3>
                   <p className="text-xs font-mono text-[#414942]">
-                    Ref: PAY-{paystubData?.computationMonth?.month || 8}-{paystubData?.computationMonth?.year || 2026}
+                    Ref: {paystubData?.referenceNumber || "PAY-202608"} • {paystubData?.period || "August 2026"}
                   </p>
                 </div>
               </div>

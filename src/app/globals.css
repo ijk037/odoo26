@@ -154,3 +154,20 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #346645;
 }
+
+/* Print optimizations for official payslips and records */
+@media print {
+  aside, header, button, .no-print {
+    display: none !important;
+  }
+  body, main {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .retro-card, .retro-card-static {
+    box-shadow: none !important;
+    border: 1px solid #000000 !important;
+  }
+}
