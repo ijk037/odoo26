@@ -84,7 +84,14 @@ export function Header() {
       if (res.success) {
         toast.success(`Switched role to ${demo.name}`, "Session Switched");
         setSwitcherOpen(false);
-        router.refresh();
+        if (
+          (demo.role === "EMPLOYEE" && (pathname.startsWith("/employees") || pathname.startsWith("/audit-logs"))) ||
+          (demo.role === "HR" && pathname.startsWith("/audit-logs"))
+        ) {
+          router.push("/dashboard");
+        } else {
+          router.refresh();
+        }
       } else {
         toast.error(res.error || "Failed to switch user", "Switch Failed");
       }
