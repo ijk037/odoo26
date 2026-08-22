@@ -351,7 +351,7 @@ export default function DashboardPage() {
                           {l.leaveType}
                         </span>
                       </td>
-                      <td className="p-2.5 italic max-w-xs truncate text-[#414942]">"{l.reason}"</td>
+                      <td className="p-2.5 italic max-w-xs truncate text-[#414942]">&ldquo;{l.reason}&rdquo;</td>
                       <td className="p-2.5 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button

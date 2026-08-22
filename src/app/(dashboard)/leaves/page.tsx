@@ -361,7 +361,7 @@ export default function LeavesPage() {
                     <span className="text-[#717971]">Window:</span>
                     <span className="font-bold">{formatDate(l.startDate)} - {formatDate(l.endDate)} ({l.daysCount}d)</span>
                   </div>
-                  <div className="italic text-[#414942]">"{l.reason}"</div>
+                  <div className="italic text-[#414942]">&ldquo;{l.reason}&rdquo;</div>
                 </div>
 
                 <div className="flex justify-end gap-2 pt-1">
@@ -448,7 +448,7 @@ export default function LeavesPage() {
                         {formatDate(l.startDate)} → {formatDate(l.endDate)}
                       </td>
                       <td className="p-2.5 font-bold text-[#151D22]">{l.daysCount}d</td>
-                      <td className="p-2.5 max-w-xs truncate italic text-[#414942]">"{l.reason}"</td>
+                      <td className="p-2.5 max-w-xs truncate italic text-[#414942]">&ldquo;{l.reason}&rdquo;</td>
                       <td className="p-2.5">
                         <Badge variant="status" value={l.status} />
                       </td>
@@ -500,7 +500,7 @@ export default function LeavesPage() {
                 <div>Applicant: <strong>{selectedReviewLeave.user?.profile?.firstName} {selectedReviewLeave.user?.profile?.lastName}</strong></div>
                 <div>Category: <strong>{selectedReviewLeave.leaveType} ({selectedReviewLeave.daysCount} Business Days)</strong></div>
                 <div>Dates: <strong>{formatDate(selectedReviewLeave.startDate)} - {formatDate(selectedReviewLeave.endDate)}</strong></div>
-                <div className="italic">"{selectedReviewLeave.reason}"</div>
+                <div className="italic">&ldquo;{selectedReviewLeave.reason}&rdquo;</div>
               </div>
 
               <div>
