@@ -22,6 +22,9 @@ import {
   Award,
   Sparkles,
   Info,
+  Edit2,
+  X,
+  FileCheck,
 } from "lucide-react";
 
 export default function AttendancePage() {
@@ -29,16 +32,32 @@ export default function AttendancePage() {
   const { toast } = useToast();
 
   const [records, setRecords] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [userFilter, setUserFilter] = useState("ALL");
   const [actionLoading, setActionLoading] = useState(false);
   const [elapsed, setElapsed] = useState("");
+
+  // Manual Adjust Modal State
+  const [adjustModalOpen, setAdjustModalOpen] = useState(false);
+  const [adjusting, setAdjusting] = useState(false);
+  const [adjustData, setAdjustData] = useState({
+    userId: "",
+    date: new Date().toISOString().slice(0, 10),
+    checkIn: "09:00",
+    checkOut: "17:30",
+    status: "PRESENT",
+    workingHours: 8.5,
+    notes: "",
+  });
 
   const fetchAttendance = useCallback(async () => {
     try {
       setLoading(true);
       const queryParams = new URLSearchParams();
       if (statusFilter !== "ALL") queryParams.set("status", statusFilter);
+      if (userFilter !== "ALL") queryParams.set("userId", userFilter);
 
       const res = await fetch(`/api/attendance?${queryParams.toString()}`);
       if (res.ok) {
@@ -51,11 +70,25 @@ export default function AttendancePage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, toast]);
+  }, [statusFilter, userFilter, toast]);
+
+  const fetchEmployeesList = useCallback(async () => {
+    if (!isAdmin && !isHR) return;
+    try {
+      const res = await fetch("/api/users");
+      if (res.ok) {
+        const data = await res.json();
+        setEmployees(data.users || []);
+      }
+    } catch (err) {
+      console.error("Failed to load users list:", err);
+    }
+  }, [isAdmin, isHR]);
 
   useEffect(() => {
     fetchAttendance();
-  }, [fetchAttendance]);
+    fetchEmployeesList();
+  }, [fetchAttendance, fetchEmployeesList]);
 
   // Today's record for current user
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -119,11 +152,58 @@ export default function AttendancePage() {
     }
   };
 
+  // Handle Manual Log Adjustment Submission
+  const handleManualAdjustSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adjustData.userId || !adjustData.date) {
+      toast.error("Please select an employee and date", "Validation");
+      return;
+    }
+
+    setAdjusting(true);
+    try {
+      // Build ISO checkIn and checkOut dates
+      const baseDate = adjustData.date;
+      const checkInISO = adjustData.checkIn ? new Date(`${baseDate}T${adjustData.checkIn}:00Z`).toISOString() : null;
+      const checkOutISO = adjustData.checkOut ? new Date(`${baseDate}T${adjustData.checkOut}:00Z`).toISOString() : null;
+
+      const res = await fetch("/api/attendance", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: adjustData.userId,
+          date: new Date(`${baseDate}T00:00:00Z`).toISOString(),
+          checkIn: checkInISO,
+          checkOut: checkOutISO,
+          status: adjustData.status,
+          workingHours: Number(adjustData.workingHours),
+          notes: adjustData.notes,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error(data.error || "Failed to adjust ledger entry", "Error");
+      } else {
+        toast.success("Attendance ledger entry updated successfully!", "Ledger Adjusted");
+        setAdjustModalOpen(false);
+        await fetchAttendance();
+      }
+    } catch (err) {
+      console.error("Manual adjustment error:", err);
+      toast.error("Network error while submitting adjustment", "Error");
+    } finally {
+      setAdjusting(false);
+    }
+  };
+
   // Metrics calculation
   const totalHours = records.reduce((acc, r) => acc + (r.workingHours || 0), 0);
   const presentCount = records.filter((r) => r.status === "PRESENT").length;
   const lateCount = records.filter((r) => r.status === "LATE").length;
   const halfDayCount = records.filter((r) => r.status === "HALF_DAY").length;
+  const leaveCount = records.filter((r) => r.status === "ON_LEAVE").length;
   const totalWorkingDays = records.length || 1;
   const attendanceRate = Math.round(((presentCount + lateCount) / totalWorkingDays) * 1000) / 10 || 96.5;
 
@@ -132,22 +212,43 @@ export default function AttendancePage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-white tracking-tight">Attendance & Time Tracking</h2>
+          <h2 className="text-xl font-bold text-white tracking-tight">Organization Attendance Ledger</h2>
           <p className="text-xs text-slate-400">
             {isAdmin || isHR
-              ? "Organization-wide attendance audit trail and work-hour computations"
+              ? "Organization-wide attendance audit trail, time clocks, and manual log overrides"
               : "Stateful check-in / check-out with automated status computation and duration logging"}
           </p>
         </div>
+
+        {(isAdmin || isHR) && (
+          <button
+            onClick={() => {
+              setAdjustData({
+                userId: employees[0]?.id || "",
+                date: new Date().toISOString().slice(0, 10),
+                checkIn: "09:00",
+                checkOut: "17:30",
+                status: "PRESENT",
+                workingHours: 8.5,
+                notes: "Manual regularized shift",
+              });
+              setAdjustModalOpen(true);
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/30 transition-all self-start sm:self-auto hover:scale-[1.02]"
+          >
+            <Edit2 className="w-4 h-4" />
+            <span>Manual Log Adjustment</span>
+          </button>
+        )}
       </div>
 
-      {/* Hero: Active Check-In Status Card */}
+      {/* Active Check-In Status Card */}
       <div className="rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-slate-800 p-6 shadow-xl relative overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-400">
-                Today's Time Card
+                Personal Time Card
               </span>
               <span className="w-1.5 h-1.5 rounded-full bg-slate-600" />
               <span className="text-xs font-mono text-slate-400">{formatDate(new Date())}</span>
@@ -250,26 +351,32 @@ export default function AttendancePage() {
           <div className="text-2xl font-bold text-white tracking-tight font-mono">
             {Math.round(totalHours * 10) / 10} hrs
           </div>
-          <span className="text-[10px] text-slate-500">Completed monthly cycle</span>
-        </div>
-      </div>
-
-      {/* Dynamic Status Computation Info Card */}
-      <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-400">
-        <div className="flex items-center gap-2">
-          <Info className="w-4 h-4 text-indigo-400 shrink-0" />
-          <span>
-            <strong className="text-slate-200">Dynamic Status Engine: </strong>
-            Arriving by 9:30 AM logs <span className="text-emerald-400 font-semibold">PRESENT</span>; after 9:30 AM logs <span className="text-amber-400 font-semibold">LATE</span>; shifts &lt; 4.5h calculate <span className="text-purple-400 font-semibold">HALF_DAY</span>.
-          </span>
+          <span className="text-[10px] text-slate-500">{leaveCount} approved leaves logged</span>
         </div>
       </div>
 
       {/* Filter Row */}
-      <div className="flex items-center justify-between gap-4 bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800">
-        <div className="flex items-center gap-2 text-xs text-slate-400">
-          <Filter className="w-4 h-4 text-indigo-400" />
-          <span className="font-semibold">Filter Records:</span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 text-xs text-slate-400">
+            <Filter className="w-4 h-4 text-indigo-400" />
+            <span className="font-semibold">Filter:</span>
+          </div>
+
+          {(isAdmin || isHR) && (
+            <select
+              value={userFilter}
+              onChange={(e) => setUserFilter(e.target.value)}
+              className="px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="ALL">All Workforce Members</option>
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.profile ? `${emp.profile.firstName} ${emp.profile.lastName} (${emp.profile.employeeId})` : emp.email}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         <div className="flex items-center gap-1.5 overflow-x-auto">
@@ -293,7 +400,7 @@ export default function AttendancePage() {
       <div className="rounded-2xl border border-slate-800 bg-slate-900/80 overflow-hidden shadow-xl">
         <div className="p-4 border-b border-slate-800 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-white">
-            {isAdmin || isHR ? "Comprehensive Attendance Logs" : "My Attendance History"}
+            {isAdmin || isHR ? "Organization Attendance History Ledger" : "My Attendance History"}
           </h3>
           <span className="text-xs text-slate-400 font-mono">{records.length} records</span>
         </div>
@@ -317,7 +424,8 @@ export default function AttendancePage() {
                   <th className="px-5 py-3.5 font-semibold">Check-Out Time</th>
                   <th className="px-5 py-3.5 font-semibold">Working Duration</th>
                   <th className="px-5 py-3.5 font-semibold">Status</th>
-                  <th className="px-5 py-3.5 font-semibold">Shift Remarks</th>
+                  <th className="px-5 py-3.5 font-semibold">Shift Remarks & Ledger Notes</th>
+                  {(isAdmin || isHR) && <th className="px-5 py-3.5 text-right font-semibold">Adjust</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
@@ -353,8 +461,31 @@ export default function AttendancePage() {
                         <Badge variant="status" value={r.status} />
                       </td>
                       <td className="px-5 py-3.5 text-slate-400 max-w-xs truncate">
-                        {r.notes || "Standard working shift"}
+                        {r.notes || "Standard shift"}
                       </td>
+                      {(isAdmin || isHR) && (
+                        <td className="px-5 py-3.5 text-right">
+                          <button
+                            onClick={() => {
+                              const d = new Date(r.date).toISOString().slice(0, 10);
+                              setAdjustData({
+                                userId: r.userId,
+                                date: d,
+                                checkIn: r.checkIn ? new Date(r.checkIn).toTimeString().slice(0, 5) : "09:00",
+                                checkOut: r.checkOut ? new Date(r.checkOut).toTimeString().slice(0, 5) : "17:30",
+                                status: r.status,
+                                workingHours: r.workingHours || 8.5,
+                                notes: r.notes || "",
+                              });
+                              setAdjustModalOpen(true);
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-indigo-400 hover:bg-indigo-500/10 text-xs font-semibold"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                            <span>Edit</span>
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -363,6 +494,138 @@ export default function AttendancePage() {
           </div>
         )}
       </div>
+
+      {/* MANUAL ADJUSTMENT MODAL (ADMIN / HR) */}
+      {adjustModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in-50">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
+                  <Edit2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Manual Ledger Adjustment</h3>
+                  <p className="text-xs text-slate-400">Override or insert official attendance record</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setAdjustModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleManualAdjustSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Target Employee</label>
+                <select
+                  required
+                  value={adjustData.userId}
+                  onChange={(e) => setAdjustData({ ...adjustData, userId: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">Select Employee...</option>
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.profile ? `${emp.profile.firstName} ${emp.profile.lastName} (${emp.profile.employeeId})` : emp.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={adjustData.date}
+                    onChange={(e) => setAdjustData({ ...adjustData, date: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:ring-2 focus:ring-indigo-500 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Status</label>
+                  <select
+                    value={adjustData.status}
+                    onChange={(e) => setAdjustData({ ...adjustData, status: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="PRESENT">PRESENT</option>
+                    <option value="LATE">LATE</option>
+                    <option value="HALF_DAY">HALF_DAY</option>
+                    <option value="ABSENT">ABSENT</option>
+                    <option value="ON_LEAVE">ON_LEAVE</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Check-In</label>
+                  <input
+                    type="time"
+                    value={adjustData.checkIn}
+                    onChange={(e) => setAdjustData({ ...adjustData, checkIn: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:ring-2 focus:ring-indigo-500 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Check-Out</label>
+                  <input
+                    type="time"
+                    value={adjustData.checkOut}
+                    onChange={(e) => setAdjustData({ ...adjustData, checkOut: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:ring-2 focus:ring-indigo-500 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Working Hours</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={adjustData.workingHours}
+                    onChange={(e) => setAdjustData({ ...adjustData, workingHours: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:ring-2 focus:ring-indigo-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Adjustment Reason & Audit Notes</label>
+                <textarea
+                  rows={2}
+                  required
+                  value={adjustData.notes}
+                  onChange={(e) => setAdjustData({ ...adjustData, notes: e.target.value })}
+                  placeholder="e.g. Remote work, biometric device failure, regularized by manager"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setAdjustModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={adjusting}
+                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold flex items-center gap-2 shadow-md shadow-indigo-600/30 disabled:opacity-50"
+                >
+                  {adjusting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileCheck className="w-4 h-4" />}
+                  <span>Save Ledger Entry</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

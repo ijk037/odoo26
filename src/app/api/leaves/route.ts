@@ -226,12 +226,19 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
+    if (status === "REJECTED" && (!rejectionReason || rejectionReason.trim().length === 0)) {
+      return NextResponse.json(
+        { error: "Mandatory Feedback: Please provide a reason or remarks for rejecting this leave application." },
+        { status: 400 }
+      );
+    }
+
     const updatedLeave = await prisma.leaveRequest.update({
       where: { id: leaveId },
       data: {
         status,
         approverId: status === "CANCELLED" ? existingLeave.approverId : session.id,
-        rejectionReason: status === "REJECTED" ? rejectionReason || "Not approved" : existingLeave.rejectionReason,
+        rejectionReason: status === "REJECTED" ? rejectionReason.trim() : rejectionReason || existingLeave.rejectionReason,
         approvedAt: status === "APPROVED" ? new Date() : null,
       },
       include: {
@@ -248,6 +255,45 @@ export async function PATCH(req: NextRequest) {
         },
       },
     });
+
+    // Auto-Sync to Attendance Ledger on Approval:
+    // Automatically marks each working day within the leave window as ON_LEAVE
+    if (status === "APPROVED") {
+      const curDate = new Date(existingLeave.startDate);
+      const stopDate = new Date(existingLeave.endDate);
+
+      while (curDate <= stopDate) {
+        const dayOfWeek = curDate.getUTCDay();
+        // Skip weekend dates
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+          const normalizedDate = new Date(
+            Date.UTC(curDate.getUTCFullYear(), curDate.getUTCMonth(), curDate.getUTCDate())
+          );
+
+          await prisma.attendanceRecord.upsert({
+            where: {
+              userId_date: {
+                userId: existingLeave.userId,
+                date: normalizedDate,
+              },
+            },
+            update: {
+              status: "ON_LEAVE",
+              workingHours: 0,
+              notes: `Approved ${existingLeave.leaveType} Leave (Authorized by ${session.email})`,
+            },
+            create: {
+              userId: existingLeave.userId,
+              date: normalizedDate,
+              status: "ON_LEAVE",
+              workingHours: 0,
+              notes: `Approved ${existingLeave.leaveType} Leave (Authorized by ${session.email})`,
+            },
+          });
+        }
+        curDate.setUTCDate(curDate.getUTCDate() + 1);
+      }
+    }
 
     const auditAction =
       status === "APPROVED"

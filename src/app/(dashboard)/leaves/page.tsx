@@ -23,6 +23,8 @@ import {
   ShieldCheck,
   Ban,
   CheckCheck,
+  Sparkles,
+  Info,
 } from "lucide-react";
 
 export default function LeavesPage() {
@@ -33,6 +35,13 @@ export default function LeavesPage() {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // Leave Review Modal State (HR/Admin)
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [selectedReviewLeave, setSelectedReviewLeave] = useState<any>(null);
+  const [reviewDecision, setReviewDecision] = useState<"APPROVED" | "REJECTED">("APPROVED");
+  const [reviewRemarks, setReviewRemarks] = useState("");
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
   // New leave form state
   const [newLeave, setNewLeave] = useState({
@@ -155,53 +164,63 @@ export default function LeavesPage() {
     }
   };
 
-  const handleReviewLeave = async (leaveId: string, status: "APPROVED" | "REJECTED") => {
-    let rejectionReason = undefined;
-    if (status === "REJECTED") {
-      const promptRes = window.prompt("Enter rejection reason / manager feedback for this request:");
-      if (promptRes === null) return;
-      rejectionReason = promptRes;
+  // Process HR Decision Modal Submit
+  const handleReviewSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedReviewLeave) return;
+
+    if (reviewDecision === "REJECTED" && (!reviewRemarks || reviewRemarks.trim().length === 0)) {
+      toast.error("Mandatory feedback required when rejecting a leave application", "Validation");
+      return;
     }
 
-    setActionLoading(leaveId);
+    setReviewSubmitting(true);
     try {
       const res = await fetch("/api/leaves", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leaveId, status, rejectionReason }),
+        body: JSON.stringify({
+          leaveId: selectedReviewLeave.id,
+          status: reviewDecision,
+          rejectionReason: reviewRemarks,
+        }),
       });
 
       const data = await res.json();
 
-      if (res.ok) {
-        toast.success(
-          `Leave request ${status.toLowerCase()} successfully!`,
-          status === "APPROVED" ? "Leave Approved" : "Leave Rejected"
-        );
-        await fetchLeaves();
+      if (!res.ok) {
+        toast.error(data.error || "Failed to process evaluation", "Error");
       } else {
-        toast.error(data.error || "Failed to update leave", "Error");
+        toast.success(
+          `Leave request ${reviewDecision.toLowerCase()} successfully! ${
+            reviewDecision === "APPROVED" ? "(Auto-synced to Attendance Ledger)" : ""
+          }`,
+          reviewDecision === "APPROVED" ? "Leave Approved & Synced" : "Leave Rejected"
+        );
+        setReviewModalOpen(false);
+        await fetchLeaves();
       }
     } catch (err) {
-      console.error("Failed to update leave:", err);
+      console.error("Leave evaluation error:", err);
       toast.error("Network error during evaluation", "Error");
     } finally {
-      setActionLoading(null);
+      setReviewSubmitting(false);
     }
   };
 
   const myLeaves = leaves.filter((l) => l.userId === user?.id);
   const pendingLeaves = leaves.filter((l) => l.status === "PENDING");
-  const approvedLeavesCount = myLeaves.filter((l) => l.status === "APPROVED").length;
 
   return (
     <DashboardLayout>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-white tracking-tight">Time Off & Leave Management</h2>
+          <h2 className="text-xl font-bold text-white tracking-tight">Time Off & Leave Approval Center</h2>
           <p className="text-xs text-slate-400">
-            Submit absence applications, track manager decisions, and monitor policy quotas
+            {isAdmin || isHR
+              ? "Evaluate pending workforce absences with mandatory remarks and attendance ledger auto-synchronization"
+              : "Submit absence applications, track manager decisions, and monitor policy quotas"}
           </p>
         </div>
 
@@ -277,7 +296,9 @@ export default function LeavesPage() {
             </div>
             <div>
               <h3 className="text-sm font-bold text-white">Pending Approval Queue ({pendingLeaves.length})</h3>
-              <p className="text-xs text-slate-400">Review team requests and provide actionable feedback</p>
+              <p className="text-xs text-slate-400">
+                Approving automatically marks calendar dates as <strong className="text-emerald-400">ON_LEAVE</strong> in the Attendance Ledger
+              </p>
             </div>
           </div>
 
@@ -309,7 +330,7 @@ export default function LeavesPage() {
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block mb-0.5">Remarks / Reason:</span>
+                    <span className="text-slate-500 block mb-0.5">Applicant Remarks:</span>
                     <p className="italic text-slate-300 bg-slate-900/60 p-1.5 rounded border border-slate-800">
                       "{l.reason}"
                     </p>
@@ -318,24 +339,29 @@ export default function LeavesPage() {
 
                 <div className="flex items-center justify-end gap-2 pt-1">
                   <button
-                    disabled={actionLoading === l.id}
-                    onClick={() => handleReviewLeave(l.id, "REJECTED")}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 text-xs font-semibold transition-colors disabled:opacity-50"
+                    onClick={() => {
+                      setSelectedReviewLeave(l);
+                      setReviewDecision("REJECTED");
+                      setReviewRemarks("");
+                      setReviewModalOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 text-xs font-semibold transition-colors"
                   >
                     <XCircle className="w-3.5 h-3.5" />
                     <span>Reject</span>
                   </button>
+
                   <button
-                    disabled={actionLoading === l.id}
-                    onClick={() => handleReviewLeave(l.id, "APPROVED")}
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-all shadow-sm disabled:opacity-50"
+                    onClick={() => {
+                      setSelectedReviewLeave(l);
+                      setReviewDecision("APPROVED");
+                      setReviewRemarks("Approved by HR. Have a great time off!");
+                      setReviewModalOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-all shadow-sm"
                   >
-                    {actionLoading === l.id ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                    )}
-                    <span>Approve</span>
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Review & Approve</span>
                   </button>
                 </div>
               </div>
@@ -389,7 +415,7 @@ export default function LeavesPage() {
                       {(isAdmin || isHR) && (
                         <td className="px-5 py-3.5">
                           <span className="font-semibold text-white">{empName}</span>
-                          <span className="block text-[10px] text-slate-400">
+                          <span className="block text-[10px] text-slate-400 font-mono">
                             {empProfile?.employeeId}
                           </span>
                         </td>
@@ -451,7 +477,140 @@ export default function LeavesPage() {
         )}
       </div>
 
-      {/* Apply Leave Modal */}
+      {/* HR EVALUATION MODAL WITH MANDATORY REMARKS */}
+      {reviewModalOpen && selectedReviewLeave && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in-50">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <div
+                  className={`p-2 rounded-xl ${
+                    reviewDecision === "APPROVED"
+                      ? "bg-emerald-500/10 text-emerald-400"
+                      : "bg-rose-500/10 text-rose-400"
+                  }`}
+                >
+                  {reviewDecision === "APPROVED" ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">
+                    {reviewDecision === "APPROVED" ? "Authorize Leave Request" : "Decline Leave Request"}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    {selectedReviewLeave.user?.profile?.firstName} {selectedReviewLeave.user?.profile?.lastName} (
+                    {selectedReviewLeave.user?.profile?.employeeId})
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setReviewModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs space-y-1">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Category & Duration:</span>
+                <span className="font-semibold text-white">
+                  {selectedReviewLeave.leaveType} ({selectedReviewLeave.daysCount} Days)
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Date Range:</span>
+                <span className="font-mono text-slate-200">
+                  {formatDate(selectedReviewLeave.startDate)} → {formatDate(selectedReviewLeave.endDate)}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-500 block">Applicant Reason:</span>
+                <p className="italic text-slate-300 mt-0.5">"{selectedReviewLeave.reason}"</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleReviewSubmit} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Decision</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setReviewDecision("APPROVED")}
+                    className={`py-2 px-3 rounded-xl font-bold border transition-all ${
+                      reviewDecision === "APPROVED"
+                        ? "bg-emerald-600 text-white border-emerald-500"
+                        : "bg-slate-950 text-slate-400 border-slate-800"
+                    }`}
+                  >
+                    Approve Request
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReviewDecision("REJECTED")}
+                    className={`py-2 px-3 rounded-xl font-bold border transition-all ${
+                      reviewDecision === "REJECTED"
+                        ? "bg-rose-600 text-white border-rose-500"
+                        : "bg-slate-950 text-slate-400 border-slate-800"
+                    }`}
+                  >
+                    Reject Request
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">
+                  Manager Remarks & Feedback {reviewDecision === "REJECTED" && <span className="text-rose-400">* (Mandatory)</span>}
+                </label>
+                <textarea
+                  rows={3}
+                  required={reviewDecision === "REJECTED"}
+                  value={reviewRemarks}
+                  onChange={(e) => setReviewRemarks(e.target.value)}
+                  placeholder={
+                    reviewDecision === "APPROVED"
+                      ? "Optional confirmation note for the applicant..."
+                      : "Explain the reason for rejecting this leave request (e.g. coverage, sprint deadline)..."
+                  }
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              {reviewDecision === "APPROVED" && (
+                <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-300 flex items-start gap-2">
+                  <Sparkles className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>
+                    Auto-Sync Enabled: Calendar dates ({formatDate(selectedReviewLeave.startDate)} to{" "}
+                    {formatDate(selectedReviewLeave.endDate)}) will automatically be logged as ON_LEAVE in the Attendance Ledger.
+                  </span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setReviewModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={reviewSubmitting}
+                  className={`px-5 py-2 rounded-xl font-semibold flex items-center gap-2 text-white disabled:opacity-50 ${
+                    reviewDecision === "APPROVED" ? "bg-emerald-600 hover:bg-emerald-500" : "bg-rose-600 hover:bg-rose-500"
+                  }`}
+                >
+                  {reviewSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCheck className="w-4 h-4" />}
+                  <span>Confirm Decision</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* APPLY LEAVE MODAL */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in-50">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">

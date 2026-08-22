@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
         },
       },
       orderBy: { date: "desc" },
-      take: 100,
+      take: 150,
     });
 
     return NextResponse.json({ records });
@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST /api/attendance - Check-in or Check-out
+// POST /api/attendance - Check-in or Check-out (Self-service punch)
 export async function POST(req: NextRequest) {
   try {
     const session = await getSessionUser();
@@ -171,5 +171,100 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error("POST /api/attendance error:", error);
     return NextResponse.json({ error: "Failed to record attendance" }, { status: 500 });
+  }
+}
+
+// PUT /api/attendance - Manual Attendance Adjustment / Ledger Override (Admin & HR only)
+export async function PUT(req: NextRequest) {
+  try {
+    const session = await getSessionUser();
+    if (!session || (session.role !== "ADMIN" && session.role !== "HR")) {
+      return NextResponse.json(
+        { error: "Forbidden: Only HR and Admin can manually adjust attendance records" },
+        { status: 403 }
+      );
+    }
+
+    const body = await req.json();
+    const {
+      userId,
+      date,
+      checkIn,
+      checkOut,
+      status = "PRESENT",
+      workingHours = 8.5,
+      notes,
+    } = body;
+
+    if (!userId || !date) {
+      return NextResponse.json(
+        { error: "User ID and Date are required for attendance adjustment" },
+        { status: 400 }
+      );
+    }
+
+    const parsedDate = new Date(date);
+    const normalizedDate = new Date(
+      Date.UTC(parsedDate.getUTCFullYear(), parsedDate.getUTCMonth(), parsedDate.getUTCDate())
+    );
+
+    const checkInDate = checkIn ? new Date(checkIn) : null;
+    const checkOutDate = checkOut ? new Date(checkOut) : null;
+
+    const record = await prisma.attendanceRecord.upsert({
+      where: {
+        userId_date: {
+          userId,
+          date: normalizedDate,
+        },
+      },
+      update: {
+        checkIn: checkInDate,
+        checkOut: checkOutDate,
+        status,
+        workingHours: Number(workingHours),
+        notes: notes ? `[Admin Adjusted by ${session.email}]: ${notes}` : `Adjusted by ${session.email}`,
+      },
+      create: {
+        userId,
+        date: normalizedDate,
+        checkIn: checkInDate,
+        checkOut: checkOutDate,
+        status,
+        workingHours: Number(workingHours),
+        notes: notes ? `[Admin Created by ${session.email}]: ${notes}` : `Created by ${session.email}`,
+      },
+      include: {
+        user: {
+          select: {
+            email: true,
+            profile: true,
+          },
+        },
+      },
+    });
+
+    await createAuditLog({
+      actorId: session.id,
+      action: "ATTENDANCE_MANUAL_ADJUST",
+      entity: "AttendanceRecord",
+      entityId: record.id,
+      details: {
+        targetUserId: userId,
+        adjustedDate: normalizedDate,
+        status,
+        workingHours,
+        notes,
+      },
+      ipAddress: req.headers.get("x-forwarded-for") || "127.0.0.1",
+    });
+
+    return NextResponse.json({
+      message: "Attendance ledger entry successfully updated",
+      record,
+    });
+  } catch (error) {
+    console.error("PUT /api/attendance error:", error);
+    return NextResponse.json({ error: "Failed to manually adjust attendance" }, { status: 500 });
   }
 }
