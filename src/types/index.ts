@@ -165,3 +165,45 @@ export interface AuditLogData {
     } | null;
   } | null;
 }
+
+export type PayrollRecordStatus = "Draft" | "Approved" | "Paid";
+
+export interface SalaryBreakdownData {
+  grossSalary: number;
+  lopDays: number;
+  basic: number;
+  hra: number;
+  specialAllowance: number;
+  totalEarnings: number;
+  pf: number;
+  esi: number;
+  pt: number;
+  lopDeduction: number;
+  totalDeductions: number;
+  netPay: number;
+}
+
+export interface PayrollLedgerRecord {
+  id: string;
+  userId: string;
+  employeeId: string;
+  name: string;
+  email: string;
+  department: string;
+  designation: string;
+  avatarUrl?: string | null;
+  grossSalary: number;
+  lopDays: number;
+  payableDays?: number;
+  totalDays?: number;
+  currency: string;
+  breakdown: SalaryBreakdownData;
+  status: PayrollRecordStatus;
+  paymentMethod?: string;
+  bankName?: string | null;
+  accountNumber?: string | null;
+  month?: number;
+  year?: number;
+  updatedAt?: string | Date;
+}
+
