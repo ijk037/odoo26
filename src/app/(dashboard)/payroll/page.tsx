@@ -28,6 +28,32 @@ export default function PayrollPage() {
   const [currentEdit, setCurrentEdit] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
+  const [reconcileSync, setReconcileSync] = useState<{
+    employeeId?: string;
+    month?: string;
+    year?: string;
+    payableDays?: string;
+    lopDays?: string;
+    totalDays?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const sp = new URLSearchParams(window.location.search);
+      const payableDays = sp.get("payableDays");
+      const lopDays = sp.get("lopDays");
+      if (payableDays || lopDays) {
+        setReconcileSync({
+          employeeId: sp.get("employeeId") || undefined,
+          month: sp.get("month") || undefined,
+          year: sp.get("year") || undefined,
+          payableDays: payableDays || "0",
+          lopDays: lopDays || "0",
+          totalDays: sp.get("totalDays") || "30",
+        });
+      }
+    }
+  }, []);
 
   const fetchSalaries = useCallback(async () => {
     try {
@@ -105,6 +131,34 @@ export default function PayrollPage() {
           </p>
         </div>
       </div>
+
+      {/* Attendance Reconciliation Sync Banner */}
+      {reconcileSync && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-950/60 via-purple-950/40 to-slate-900 border border-indigo-500/30 flex items-center justify-between gap-4 animate-in fade-in-50 shadow-lg">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-white">Attendance Reconciled for Payroll</span>
+                <span className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  LOP Applied
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300 mt-0.5">
+                Target Employee: <strong className="text-white font-mono">{reconcileSync.employeeId || "Selected"}</strong> • Payable Days: <strong className="text-emerald-400 font-mono">{reconcileSync.payableDays}/{reconcileSync.totalDays} Days</strong> • Loss of Pay Deductions: <strong className="text-rose-400 font-mono">{reconcileSync.lopDays} Days</strong>
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setReconcileSync(null)}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Salary Overview for current employee */}
       {mySalary && (

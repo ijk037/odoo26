@@ -5,6 +5,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useAuth } from "@/context/AuthContext";
 import { Badge } from "@/components/ui/Badge";
 import { TableSkeleton } from "@/components/ui/LoadingSkeleton";
+import { AttendanceReconciliationModal } from "@/components/attendance/AttendanceReconciliationModal";
 import { formatDate, formatTime } from "@/lib/utils";
 import {
   CalendarCheck,
@@ -17,6 +18,7 @@ import {
   LogOut,
   Calendar,
   Loader2,
+  ShieldAlert,
 } from "lucide-react";
 
 export default function AttendancePage() {
@@ -25,6 +27,8 @@ export default function AttendancePage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [actionLoading, setActionLoading] = useState(false);
+  const [reconciliationModalOpen, setReconciliationModalOpen] = useState(false);
+  const [selectedReconcileEmp, setSelectedReconcileEmp] = useState<string | undefined>(undefined);
 
   const fetchAttendance = useCallback(async () => {
     try {
@@ -92,8 +96,22 @@ export default function AttendancePage() {
           </p>
         </div>
 
-        {/* Quick Check-in Banner / Button */}
+        {/* Header Action Buttons */}
         <div className="flex items-center gap-3">
+          {(isAdmin || isHR) && (
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedReconcileEmp(undefined);
+                setReconciliationModalOpen(true);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold text-white bg-gradient-to-r from-purple-600 via-indigo-600 to-indigo-700 hover:from-purple-500 hover:to-indigo-600 shadow-md shadow-indigo-600/30 transition-all border border-indigo-500/30"
+            >
+              <ShieldAlert className="w-4 h-4 text-purple-200" />
+              <span>Reconciliation & LOP</span>
+            </button>
+          )}
+
           <button
             type="button"
             disabled={actionLoading}
@@ -195,6 +213,7 @@ export default function AttendancePage() {
                   <th className="px-5 py-3.5 font-semibold">Hours Logged</th>
                   <th className="px-5 py-3.5 font-semibold">Status</th>
                   <th className="px-5 py-3.5 font-semibold">Notes</th>
+                  {(isAdmin || isHR) && <th className="px-5 py-3.5 text-right font-semibold">Action</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
@@ -234,6 +253,22 @@ export default function AttendancePage() {
                       <td className="px-5 py-3.5 text-slate-400 max-w-xs truncate">
                         {r.notes || "Standard shift"}
                       </td>
+                      {(isAdmin || isHR) && (
+                        <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedReconcileEmp(empProfile?.employeeId || r.userId);
+                              setReconciliationModalOpen(true);
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 text-xs font-semibold transition-colors"
+                            title="Open Attendance Reconciliation"
+                          >
+                            <ShieldAlert className="w-3.5 h-3.5" />
+                            <span>Reconcile</span>
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -242,6 +277,14 @@ export default function AttendancePage() {
           </div>
         )}
       </div>
+
+      {/* Attendance Reconciliation Modal */}
+      <AttendanceReconciliationModal
+        isOpen={reconciliationModalOpen}
+        onClose={() => setReconciliationModalOpen(false)}
+        initialEmployeeId={selectedReconcileEmp}
+        onReconciliationUpdated={fetchAttendance}
+      />
     </DashboardLayout>
   );
 }
