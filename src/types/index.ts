@@ -10,6 +10,7 @@ export interface UserSession {
   email: string;
   role: Role;
   status: string;
+  createdAt?: string | Date;
   profile?: {
     id: string;
     employeeId: string;

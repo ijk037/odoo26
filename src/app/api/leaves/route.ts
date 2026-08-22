@@ -92,13 +92,50 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (reason.trim().length < 5) {
+      return NextResponse.json(
+        { error: "Please provide a more descriptive reason (min 5 characters)" },
+        { status: 400 }
+      );
+    }
+
     const start = new Date(startDate);
     const end = new Date(endDate);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return NextResponse.json(
+        { error: "Invalid date format provided" },
+        { status: 400 }
+      );
+    }
 
     if (end < start) {
       return NextResponse.json(
         { error: "End date cannot be prior to start date" },
         { status: 400 }
+      );
+    }
+
+    // Check for overlapping pending or approved leaves for this employee
+    const overlapping = await prisma.leaveRequest.findFirst({
+      where: {
+        userId: session.id,
+        status: { in: ["PENDING", "APPROVED"] },
+        OR: [
+          {
+            startDate: { lte: end },
+            endDate: { gte: start },
+          },
+        ],
+      },
+    });
+
+    if (overlapping) {
+      return NextResponse.json(
+        {
+          error: "You already have an active (pending or approved) leave request covering this date range.",
+        },
+        { status: 409 }
       );
     }
 
@@ -135,30 +172,30 @@ export async function POST(req: NextRequest) {
       ipAddress: req.headers.get("x-forwarded-for") || "127.0.0.1",
     });
 
-    return NextResponse.json({ message: "Leave request submitted successfully", leave }, { status: 201 });
+    return NextResponse.json(
+      { message: "Leave application submitted successfully for review", leave },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("POST /api/leaves error:", error);
     return NextResponse.json({ error: "Failed to submit leave request" }, { status: 500 });
   }
 }
 
-// PATCH /api/leaves - Approve or Reject leave request (HR & Admin only)
+// PATCH /api/leaves - Approve, Reject, or Cancel leave request
 export async function PATCH(req: NextRequest) {
   try {
     const session = await getSessionUser();
-    if (!session || (session.role !== "ADMIN" && session.role !== "HR")) {
-      return NextResponse.json(
-        { error: "Forbidden: Only HR and Admin can approve or reject leaves" },
-        { status: 403 }
-      );
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await req.json();
     const { leaveId, status, rejectionReason } = body;
 
-    if (!leaveId || !status || !["APPROVED", "REJECTED"].includes(status)) {
+    if (!leaveId || !status || !["APPROVED", "REJECTED", "CANCELLED"].includes(status)) {
       return NextResponse.json(
-        { error: "Invalid parameters. status must be APPROVED or REJECTED" },
+        { error: "Invalid parameters. status must be APPROVED, REJECTED, or CANCELLED" },
         { status: 400 }
       );
     }
@@ -171,12 +208,30 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "Leave request not found" }, { status: 404 });
     }
 
+    const isPrivileged = session.role === "ADMIN" || session.role === "HR";
+
+    // If cancelling, ensure user owns the leave and it's still pending
+    if (status === "CANCELLED") {
+      if (existingLeave.userId !== session.id && !isPrivileged) {
+        return NextResponse.json({ error: "Forbidden: You can only cancel your own leave requests" }, { status: 403 });
+      }
+      if (existingLeave.status !== "PENDING") {
+        return NextResponse.json({ error: "Only pending leave requests can be cancelled" }, { status: 400 });
+      }
+    } else if (!isPrivileged) {
+      // Approve / Reject requires HR or ADMIN role
+      return NextResponse.json(
+        { error: "Forbidden: Only HR and Admin can approve or reject leaves" },
+        { status: 403 }
+      );
+    }
+
     const updatedLeave = await prisma.leaveRequest.update({
       where: { id: leaveId },
       data: {
         status,
-        approverId: session.id,
-        rejectionReason: status === "REJECTED" ? rejectionReason || "Not approved" : null,
+        approverId: status === "CANCELLED" ? existingLeave.approverId : session.id,
+        rejectionReason: status === "REJECTED" ? rejectionReason || "Not approved" : existingLeave.rejectionReason,
         approvedAt: status === "APPROVED" ? new Date() : null,
       },
       include: {
@@ -194,9 +249,16 @@ export async function PATCH(req: NextRequest) {
       },
     });
 
+    const auditAction =
+      status === "APPROVED"
+        ? "LEAVE_APPROVE"
+        : status === "REJECTED"
+        ? "LEAVE_REJECT"
+        : "LEAVE_CANCEL";
+
     await createAuditLog({
       actorId: session.id,
-      action: status === "APPROVED" ? "LEAVE_APPROVE" : "LEAVE_REJECT",
+      action: auditAction,
       entity: "LeaveRequest",
       entityId: leaveId,
       details: {
@@ -214,5 +276,57 @@ export async function PATCH(req: NextRequest) {
   } catch (error) {
     console.error("PATCH /api/leaves error:", error);
     return NextResponse.json({ error: "Failed to update leave request" }, { status: 500 });
+  }
+}
+
+// DELETE /api/leaves - Cancel / Delete pending leave
+export async function DELETE(req: NextRequest) {
+  try {
+    const session = await getSessionUser();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const leaveId = searchParams.get("id");
+
+    if (!leaveId) {
+      return NextResponse.json({ error: "Leave ID is required" }, { status: 400 });
+    }
+
+    const leave = await prisma.leaveRequest.findUnique({
+      where: { id: leaveId },
+    });
+
+    if (!leave) {
+      return NextResponse.json({ error: "Leave request not found" }, { status: 404 });
+    }
+
+    const isPrivileged = session.role === "ADMIN" || session.role === "HR";
+    if (leave.userId !== session.id && !isPrivileged) {
+      return NextResponse.json({ error: "Forbidden: Cannot delete other user's leave" }, { status: 403 });
+    }
+
+    if (leave.status !== "PENDING") {
+      return NextResponse.json({ error: "Only PENDING leave requests can be deleted" }, { status: 400 });
+    }
+
+    await prisma.leaveRequest.delete({
+      where: { id: leaveId },
+    });
+
+    await createAuditLog({
+      actorId: session.id,
+      action: "LEAVE_DELETE",
+      entity: "LeaveRequest",
+      entityId: leaveId,
+      details: { userId: leave.userId, leaveType: leave.leaveType },
+      ipAddress: req.headers.get("x-forwarded-for") || "127.0.0.1",
+    });
+
+    return NextResponse.json({ message: "Leave request withdrawn successfully" });
+  } catch (error) {
+    console.error("DELETE /api/leaves error:", error);
+    return NextResponse.json({ error: "Failed to withdraw leave" }, { status: 500 });
   }
 }
