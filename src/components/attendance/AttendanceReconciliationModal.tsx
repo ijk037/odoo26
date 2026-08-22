@@ -165,7 +165,7 @@ export function AttendanceReconciliationModal({
       });
 
       const res = await fetch(
-        `/api/attendance/reconcile/${encodeURIComponent(selectedEmployeeId)}?${queryParams.toString()}`
+        `/api/attendance/reconcile?employeeId=${encodeURIComponent(selectedEmployeeId)}&${queryParams.toString()}`
       );
 
       if (res.ok) {

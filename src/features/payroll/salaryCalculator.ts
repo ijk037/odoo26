@@ -113,8 +113,121 @@ export function assertSalaryEngine(): boolean {
   return true;
 }
 
-export default {
+export interface PayrollCalculationInput {
+  baseSalary: number;
+  allowances?: number;
+  deductions?: number;
+  totalWorkingDays?: number;
+  presentDays?: number;
+  paidLeaveDays?: number;
+  unpaidLeaveDays?: number;
+  halfDays?: number;
+  lateDays?: number;
+}
+
+export interface ItemizedPaystub {
+  basicPay: number;
+  hra: number;
+  transportAllowance: number;
+  specialAllowance: number;
+  grossEarnings: number;
+  providentFund: number;
+  taxDeduction: number;
+  lossOfPayDeduction: number;
+  totalDeductions: number;
+  netPayable: number;
+  currency: string;
+  totalWorkingDays: number;
+  payableDays: number;
+  unpaidDays: number;
+}
+
+export function calculateDynamicPayroll(
+  input: PayrollCalculationInput,
+  currency = "USD"
+): ItemizedPaystub {
+  const {
+    baseSalary,
+    allowances = 0,
+    deductions = 0,
+    totalWorkingDays = 22,
+    unpaidLeaveDays = 0,
+    halfDays = 0,
+  } = input;
+
+  const basicPay = roundToTwo(baseSalary * 0.5);
+  const hra = roundToTwo(baseSalary * 0.3);
+  const transportAllowance = roundToTwo(baseSalary * 0.1);
+  const specialAllowance = Math.max(0, roundToTwo(baseSalary * 0.1 + allowances));
+  const grossEarnings = roundToTwo(basicPay + hra + transportAllowance + specialAllowance);
+
+  const perDayRate = totalWorkingDays > 0 ? grossEarnings / totalWorkingDays : 0;
+  const lossOfPayDays = unpaidLeaveDays + halfDays * 0.5;
+  const lossOfPayDeduction = roundToTwo(lossOfPayDays * perDayRate);
+
+  const providentFund = roundToTwo(basicPay * 0.12);
+  const taxDeduction = Math.max(0, roundToTwo(deductions > 0 ? deductions : grossEarnings * 0.08));
+
+  const totalDeductions = roundToTwo(providentFund + taxDeduction + lossOfPayDeduction);
+  const netPayable = Math.max(0, roundToTwo(grossEarnings - totalDeductions));
+  const payableDays = Math.max(0, totalWorkingDays - lossOfPayDays);
+
+  return {
+    basicPay,
+    hra,
+    transportAllowance,
+    specialAllowance,
+    grossEarnings,
+    providentFund,
+    taxDeduction,
+    lossOfPayDeduction,
+    totalDeductions,
+    netPayable,
+    currency,
+    totalWorkingDays,
+    payableDays,
+    unpaidDays: lossOfPayDays,
+  };
+}
+
+export function numberToWords(amount: number): string {
+  const rounded = Math.round(amount);
+  if (rounded === 0) return "Zero Dollars Only";
+
+  const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+
+  function convertChunk(num: number): string {
+    let str = "";
+    if (num >= 100) {
+      str += ones[Math.floor(num / 100)] + " Hundred ";
+      num %= 100;
+    }
+    if (num >= 20) {
+      str += tens[Math.floor(num / 10)] + " ";
+      num %= 10;
+    }
+    if (num > 0) str += ones[num] + " ";
+    return str.trim();
+  }
+
+  let result = "";
+  if (rounded >= 1000000) {
+    result += convertChunk(Math.floor(rounded / 1000000)) + " Million ";
+    amount %= 1000000;
+  }
+  if (rounded >= 1000) {
+    result += convertChunk(Math.floor(rounded / 1000)) + " Thousand ";
+    amount %= 1000;
+  }
+  if (rounded % 1000 > 0) result += convertChunk(rounded % 1000);
+  return `${result.trim()} Dollars Only`;
+}
+
+const salaryCalculator = {
   calculateSalary,
+  calculateDynamicPayroll,
+  numberToWords,
   calculateBasic,
   calculateHRA,
   calculateSpecialAllowance,
@@ -125,3 +238,5 @@ export default {
   roundToTwo,
   assertSalaryEngine,
 };
+
+export default salaryCalculator;

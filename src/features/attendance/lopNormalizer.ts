@@ -219,7 +219,9 @@ export async function resolveReconciliationDates({
   };
 }
 
-export default {
+const lopNormalizer = {
   calculateMonthlyAttendance,
   resolveReconciliationDates,
 };
+
+export default lopNormalizer;

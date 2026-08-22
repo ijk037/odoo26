@@ -44,37 +44,27 @@ export function formatTime(date: string | Date | null | undefined): string {
   });
 }
 
-export function getRoleBadgeClass(role: string): string {
-  switch (role) {
-    case "ADMIN":
-      return "bg-[#994621] text-white border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]";
-    case "HR":
-      return "bg-[#7b5500] text-white border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]";
-    case "EMPLOYEE":
-    default:
-      return "bg-[#346645] text-white border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]";
-  }
-}
+const ROLE_BADGES: Record<string, string> = {
+  ADMIN: "bg-[#994621] text-white border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]",
+  HR: "bg-[#7b5500] text-white border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]",
+};
 
-export function getStatusBadgeClass(status: string): string {
-  switch (status) {
-    case "ACTIVE":
-    case "APPROVED":
-    case "PRESENT":
-      return "bg-[#4d7f5c] text-white border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]";
-    case "PENDING":
-    case "HALF_DAY":
-    case "LATE":
-      return "bg-[#E6A938] text-[#151D22] border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)] font-bold";
-    case "REJECTED":
-    case "ABSENT":
-    case "SUSPENDED":
-    case "INACTIVE":
-      return "bg-[#ba1a1a] text-white border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]";
-    case "ON_LEAVE":
-    case "CANCELLED":
-      return "bg-[#dce3eb] text-[#151D22] border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]";
-    default:
-      return "bg-[#dce3eb] text-[#151D22] border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]";
-  }
-}
+export const getRoleBadgeClass = (role: string): string =>
+  ROLE_BADGES[role] || "bg-[#346645] text-white border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]";
+
+const STATUS_BADGES: Record<string, string> = {
+  ACTIVE: "bg-[#4d7f5c] text-white border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]",
+  APPROVED: "bg-[#4d7f5c] text-white border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]",
+  PRESENT: "bg-[#4d7f5c] text-white border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]",
+  PENDING: "bg-[#E6A938] text-[#151D22] border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)] font-bold",
+  HALF_DAY: "bg-[#E6A938] text-[#151D22] border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)] font-bold",
+  LATE: "bg-[#E6A938] text-[#151D22] border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)] font-bold",
+  REJECTED: "bg-[#ba1a1a] text-white border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]",
+  ABSENT: "bg-[#ba1a1a] text-white border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]",
+  SUSPENDED: "bg-[#ba1a1a] text-white border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]",
+  INACTIVE: "bg-[#ba1a1a] text-white border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]",
+};
+
+export const getStatusBadgeClass = (status: string): string =>
+  STATUS_BADGES[status] || "bg-[#dce3eb] text-[#151D22] border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]";
+

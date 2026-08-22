@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth/session";
-import { calculateDynamicPayroll, numberToWords } from "@/lib/payroll/calculator";
+import { calculateDynamicPayroll, numberToWords } from "@/features/payroll/salaryCalculator";
 
 // GET /api/payroll/compute - Compute dynamic itemized paystub(s)
 export async function GET(req: NextRequest) {
