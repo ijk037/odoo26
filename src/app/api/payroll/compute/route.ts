@@ -13,22 +13,32 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const targetUserId = searchParams.get("userId");
-    const month = searchParams.get("month") || new Date().toISOString().slice(0, 7); // e.g. "2026-08"
+    const monthParam = searchParams.get("month");
+    const yearParam = searchParams.get("year");
+
+    const now = new Date();
+    let year = now.getUTCFullYear();
+    let monthIndex = now.getUTCMonth(); // 0-indexed
+
+    if (monthParam && monthParam.includes("-")) {
+      const [y, m] = monthParam.split("-");
+      year = parseInt(y, 10) || year;
+      monthIndex = (parseInt(m, 10) || 1) - 1;
+    } else if (monthParam) {
+      monthIndex = (parseInt(monthParam, 10) || 1) - 1;
+      if (yearParam) year = parseInt(yearParam, 10) || year;
+    } else if (yearParam) {
+      year = parseInt(yearParam, 10) || year;
+    }
+
+    const month = `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
 
     const isPrivileged = session.role === "ADMIN" || session.role === "HR";
-
-    // Non-privileged users can only calculate and view their own paystub
     const effectiveUserId = !isPrivileged ? session.id : targetUserId || undefined;
-
     const where: any = {};
     if (effectiveUserId) {
       where.id = effectiveUserId;
     }
-
-    // Determine start and end of the requested month
-    const [yearStr, monthStr] = month.split("-");
-    const year = parseInt(yearStr, 10);
-    const monthIndex = parseInt(monthStr, 10) - 1;
 
     const startDate = new Date(Date.UTC(year, monthIndex, 1));
     const endDate = new Date(Date.UTC(year, monthIndex + 1, 0, 23, 59, 59, 999));
