@@ -7,6 +7,10 @@ import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { Badge } from "@/components/ui/Badge";
 import { CardSkeleton, TableSkeleton } from "@/components/ui/LoadingSkeleton";
+import { AttendanceHeatmap } from "@/components/analytics/AttendanceHeatmap";
+import { DepartmentPresenceChart } from "@/components/analytics/DepartmentPresenceChart";
+import { PunctualityTrendChart } from "@/components/analytics/PunctualityTrendChart";
+import { GeolocationPunchModal } from "@/components/attendance/GeolocationPunchModal";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import {
   Users,
@@ -25,6 +29,8 @@ import {
   LogOut,
   ChevronRight,
   Briefcase,
+  MapPin,
+  Zap,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -38,15 +44,18 @@ export default function DashboardPage() {
     monthlyPayroll: 0,
     myAttendanceRate: 96.2,
     myTotalHours: 0,
+    myOvertimeHours: 0,
     myPendingLeaves: 0,
     myNetSalary: 0,
   });
   const [recentAttendance, setRecentAttendance] = useState<any[]>([]);
+  const [allAttendance, setAllAttendance] = useState<any[]>([]);
   const [recentLeaves, setRecentLeaves] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
   const [todayRecord, setTodayRecord] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
   const [elapsed, setElapsed] = useState("");
+  const [geoPunchModalOpen, setGeoPunchModalOpen] = useState(false);
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -71,6 +80,9 @@ export default function DashboardPage() {
       const leavesList = leavesData.leaves || [];
       const salariesList = salaryData.salary || [];
 
+      setAllUsers(usersList);
+      setAllAttendance(recordsList);
+
       // Calculate stats
       const totalEmployees = usersList.length;
       const pendingLeavesCount = leavesList.filter((l: any) => l.status === "PENDING").length;
@@ -94,9 +106,10 @@ export default function DashboardPage() {
         ? salariesList.reduce((acc: number, s: any) => acc + (s.netSalary || 0), 0)
         : (salariesList?.netSalary || 0);
 
-      // Employee specific hours
+      // Employee specific hours & overtime
       const myRecords = recordsList.filter((r: any) => r.userId === user?.id);
       const myHours = myRecords.reduce((acc: number, r: any) => acc + (r.workingHours || 0), 0);
+      const myOT = myRecords.reduce((acc: number, r: any) => acc + (r.overtimeHours || 0), 0);
       const myNet = Array.isArray(salariesList)
         ? (salariesList.find((s: any) => s.userId === user?.id)?.netSalary || salariesList[0]?.netSalary || 0)
         : (salariesList?.netSalary || 0);
@@ -108,6 +121,7 @@ export default function DashboardPage() {
         monthlyPayroll: totalPayroll,
         myAttendanceRate: 96.8,
         myTotalHours: Math.round(myHours * 10) / 10 || 168.5,
+        myOvertimeHours: Math.round(myOT * 10) / 10 || 6.5,
         myPendingLeaves: leavesList.filter((l: any) => l.status === "PENDING" && l.userId === user?.id).length,
         myNetSalary: myNet || 7800,
       });
@@ -143,52 +157,22 @@ export default function DashboardPage() {
     return () => clearInterval(timer);
   }, [todayRecord]);
 
-  const handleToggleAttendance = async () => {
-    setActionLoading(true);
-    const action = todayRecord?.checkIn && !todayRecord?.checkOut ? "checkout" : "checkin";
-
-    try {
-      const res = await fetch("/api/attendance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        setTodayRecord(data.record);
-        if (action === "checkin") {
-          toast.success(`Checked in at ${formatTime(data.record.checkIn)}!`, "Check-In Logged");
-        } else {
-          toast.success(`Checked out! Working duration: ${data.record.workingHours} hrs.`, "Shift Completed");
-        }
-        await fetchDashboardData();
-      } else {
-        toast.error(data.error || "Attendance action failed", "Error");
-      }
-    } catch (err) {
-      console.error("Attendance action error:", err);
-      toast.error("Network communication error", "Error");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   const fullName = user?.profile
     ? `${user.profile.firstName} ${user.profile.lastName}`
     : user?.email;
 
+  const myRecords = allAttendance.filter((r) => r.userId === user?.id);
+
   return (
     <DashboardLayout>
-      {/* Welcome Banner */}
+      {/* Welcome Hero */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-950/90 via-slate-900 to-purple-950/80 border border-slate-800 p-6 md:p-8 shadow-xl">
         <div className="absolute right-0 top-0 w-96 h-full bg-indigo-500/5 blur-3xl pointer-events-none" />
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">
-                Self-Service Portal
+                Self-Service & Operations Portal
               </span>
               <span className="w-1.5 h-1.5 rounded-full bg-slate-600" />
               <span className="text-xs text-slate-400">
@@ -200,42 +184,42 @@ export default function DashboardPage() {
             </h2>
             <p className="text-sm text-slate-300 max-w-xl leading-relaxed">
               {isAdmin
-                ? "Global enterprise view. Manage workforce profiles, monitor attendance, process leave approvals, and review audit trails."
+                ? "Global enterprise view. Manage workforce profiles, monitor live presence rates, verify geofences, and process approvals."
                 : isHR
-                ? "Human Resources overview. Review department attendance logs, evaluate pending leave requests, and maintain employee compensation."
-                : "Employee self-service dashboard. Check your live attendance status, log working hours, request leaves, and review payslips."}
+                ? "Human Resources overview. Review department attendance logs, evaluate pending leave requests, and maintain workforce wages."
+                : "Employee self-service dashboard. Check in via GPS geofence, track overtime hours, apply for leaves, and inspect itemized paystubs."}
             </p>
           </div>
 
           <div className="flex flex-wrap gap-2.5 shrink-0">
             <Link
-              href="/leaves"
+              href="/attendance"
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-md shadow-indigo-600/30"
             >
-              <PlaneTakeoff className="w-4 h-4" />
-              <span>{isHR || isAdmin ? "Review Leaves" : "Request Leave"}</span>
+              <CalendarCheck className="w-4 h-4" />
+              <span>Attendance Ledger</span>
             </Link>
             <Link
-              href="/profile"
+              href="/leaves"
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors"
             >
-              <Briefcase className="w-4 h-4" />
-              <span>My Profile</span>
+              <PlaneTakeoff className="w-4 h-4" />
+              <span>Time Off</span>
             </Link>
           </div>
         </div>
       </div>
 
-      {/* Real-time Employee Punch Action Banner (for all roles) */}
+      {/* Real-time Employee GPS Punch Action Banner */}
       <div className="p-4 sm:p-5 rounded-2xl bg-slate-900/90 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
         <div className="flex items-center gap-3.5">
           <div className="p-3 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shrink-0">
-            <Clock className="w-5 h-5" />
+            <MapPin className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-white uppercase tracking-wider">
-                Daily Time Card Status:
+                GPS Time Card Status:
               </span>
               <Badge
                 variant="status"
@@ -248,43 +232,45 @@ export default function DashboardPage() {
                 }
               >
                 {todayRecord?.checkOut
-                  ? "Completed"
+                  ? "Shift Completed"
                   : todayRecord?.checkIn
-                  ? `In Progress (${todayRecord.status})`
+                  ? `Active Shift (${todayRecord.status})`
                   : "Not Checked In"}
               </Badge>
+              {todayRecord?.isGeofenceVerified && (
+                <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold hidden sm:inline-flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3" />
+                  <span>HQ Verified</span>
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
               {todayRecord?.checkOut
-                ? `Logged ${todayRecord.workingHours} hrs today (${formatTime(todayRecord.checkIn)} - ${formatTime(todayRecord.checkOut)})`
+                ? `Logged ${todayRecord.workingHours} hrs (${todayRecord.overtimeHours || 0}h OT) at ${todayRecord.locationName || "San Francisco HQ"}`
                 : todayRecord?.checkIn
-                ? `Checked in at ${formatTime(todayRecord.checkIn)} • Active duration: ${elapsed || "00:00:00"}`
-                : "Clock in at the start of your shift to register presence"}
+                ? `Checked in at ${formatTime(todayRecord.checkIn)} • Active duration: ${elapsed || "00:00:00"} • Location: ${todayRecord.locationName || "Office HQ"}`
+                : "Clock in using verified browser GPS coordinates to validate office presence"}
             </p>
           </div>
         </div>
 
         <button
           type="button"
-          disabled={actionLoading}
-          onClick={handleToggleAttendance}
-          className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white shadow-md transition-all self-start sm:self-auto disabled:opacity-50 ${
+          onClick={() => setGeoPunchModalOpen(true)}
+          className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white shadow-md transition-all self-start sm:self-auto ${
             todayRecord?.checkIn && !todayRecord?.checkOut
               ? "bg-rose-600 hover:bg-rose-500 shadow-rose-600/30"
               : "bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/30"
           }`}
         >
-          {todayRecord?.checkIn && !todayRecord?.checkOut ? (
-            <>
-              <LogOut className="w-4 h-4" />
-              <span>{actionLoading ? "Checking out..." : "Clock Out Now"}</span>
-            </>
-          ) : (
-            <>
-              <LogIn className="w-4 h-4" />
-              <span>{actionLoading ? "Checking in..." : todayRecord?.checkOut ? "Clock In Again" : "Clock In Now"}</span>
-            </>
-          )}
+          <MapPin className="w-4 h-4" />
+          <span>
+            {todayRecord?.checkIn && !todayRecord?.checkOut
+              ? "Complete Shift"
+              : todayRecord?.checkOut
+              ? "Clock In Again"
+              : "GPS Check-In"}
+          </span>
         </button>
       </div>
 
@@ -300,7 +286,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {isAdmin || isHR ? (
             <>
-              <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-all space-y-3">
+              <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
                 <div className="flex items-center justify-between text-slate-400">
                   <span className="text-xs font-semibold uppercase tracking-wider">Total Headcount</span>
                   <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
@@ -312,11 +298,11 @@ export default function DashboardPage() {
                 </div>
                 <div className="text-xs text-slate-400 flex items-center gap-1.5">
                   <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>5 Active Departments</span>
+                  <span>5 Business Units</span>
                 </div>
               </div>
 
-              <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-all space-y-3">
+              <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
                 <div className="flex items-center justify-between text-slate-400">
                   <span className="text-xs font-semibold uppercase tracking-wider">Present Today</span>
                   <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
@@ -327,12 +313,12 @@ export default function DashboardPage() {
                   {stats.presentToday} Checked In
                 </div>
                 <div className="text-xs text-slate-400 flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>Real-time tracking active</span>
+                  <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>GPS Geofence Verified</span>
                 </div>
               </div>
 
-              <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-all space-y-3">
+              <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
                 <div className="flex items-center justify-between text-slate-400">
                   <span className="text-xs font-semibold uppercase tracking-wider">Pending Leaves</span>
                   <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400">
@@ -342,12 +328,10 @@ export default function DashboardPage() {
                 <div className="text-2xl font-bold text-amber-400 tracking-tight">
                   {stats.pendingLeaves} Requests
                 </div>
-                <div className="text-xs text-slate-400">
-                  Awaiting HR / Admin evaluation
-                </div>
+                <div className="text-xs text-slate-400">Awaiting manager decision</div>
               </div>
 
-              <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-all space-y-3">
+              <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
                 <div className="flex items-center justify-between text-slate-400">
                   <span className="text-xs font-semibold uppercase tracking-wider">Monthly Payroll</span>
                   <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400">
@@ -357,16 +341,14 @@ export default function DashboardPage() {
                 <div className="text-2xl font-bold text-white tracking-tight font-mono">
                   {formatCurrency(stats.monthlyPayroll)}
                 </div>
-                <div className="text-xs text-slate-400">
-                  Total Disbursed Net Pay
-                </div>
+                <div className="text-xs text-slate-400">Total Net Disbursed</div>
               </div>
             </>
           ) : (
             <>
-              <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-all space-y-3">
+              <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
                 <div className="flex items-center justify-between text-slate-400">
-                  <span className="text-xs font-semibold uppercase tracking-wider">My Attendance Rate</span>
+                  <span className="text-xs font-semibold uppercase tracking-wider">Attendance Rate</span>
                   <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
                     <CalendarCheck className="w-4 h-4" />
                   </div>
@@ -377,9 +359,9 @@ export default function DashboardPage() {
                 <div className="text-xs text-slate-400">30 rolling work days</div>
               </div>
 
-              <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-all space-y-3">
+              <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
                 <div className="flex items-center justify-between text-slate-400">
-                  <span className="text-xs font-semibold uppercase tracking-wider">Logged Work Hours</span>
+                  <span className="text-xs font-semibold uppercase tracking-wider">Logged Shift Hours</span>
                   <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
                     <Clock className="w-4 h-4" />
                   </div>
@@ -387,23 +369,23 @@ export default function DashboardPage() {
                 <div className="text-2xl font-bold text-white tracking-tight font-mono">
                   {stats.myTotalHours} hrs
                 </div>
-                <div className="text-xs text-slate-400">Monthly Cycle: 160h Target</div>
+                <div className="text-xs text-slate-400">160h Monthly Base Target</div>
               </div>
 
-              <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-all space-y-3">
+              <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
                 <div className="flex items-center justify-between text-slate-400">
-                  <span className="text-xs font-semibold uppercase tracking-wider">Pending Leaves</span>
-                  <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400">
-                    <PlaneTakeoff className="w-4 h-4" />
+                  <span className="text-xs font-semibold uppercase tracking-wider">Approved Overtime (OT)</span>
+                  <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400">
+                    <Zap className="w-4 h-4" />
                   </div>
                 </div>
-                <div className="text-2xl font-bold text-amber-400 tracking-tight">
-                  {stats.myPendingLeaves} Active
+                <div className="text-2xl font-bold text-purple-400 tracking-tight font-mono">
+                  +{stats.myOvertimeHours} hrs
                 </div>
-                <div className="text-xs text-slate-400">Under manager review</div>
+                <div className="text-xs text-slate-400">Billable overtime premium</div>
               </div>
 
-              <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-all space-y-3">
+              <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
                 <div className="flex items-center justify-between text-slate-400">
                   <span className="text-xs font-semibold uppercase tracking-wider">Net Monthly Salary</span>
                   <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400">
@@ -420,7 +402,25 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Main Grid: Recent Attendance & Leave Applications */}
+      {/* Monthly Attendance Calendar Heatmap */}
+      <AttendanceHeatmap
+        records={isAdmin || isHR ? allAttendance : myRecords}
+        title={
+          isAdmin || isHR
+            ? "Organization-Wide Punctuality & Presence Heatmap (Rolling 35 Days)"
+            : "My Punctuality & Attendance Heatmap"
+        }
+      />
+
+      {/* Visual Analytics Grid (Admin / HR) */}
+      {(isAdmin || isHR) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <DepartmentPresenceChart records={allAttendance} users={allUsers} />
+          <PunctualityTrendChart records={allAttendance} />
+        </div>
+      )}
+
+      {/* Recent Activity Streams */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Attendance Activity Box */}
         <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-6 space-y-4 shadow-sm">
@@ -430,9 +430,7 @@ export default function DashboardPage() {
                 {isAdmin || isHR ? "Recent Attendance Activity" : "My Recent Attendance Logs"}
               </h3>
               <p className="text-xs text-slate-400">
-                {isAdmin || isHR
-                  ? "Real-time records from all team members"
-                  : "Your daily check-in and check-out history"}
+                {isAdmin || isHR ? "Real-time records with GPS validation" : "Your daily punch history"}
               </p>
             </div>
             <Link
@@ -466,14 +464,14 @@ export default function DashboardPage() {
                       </p>
                       <p className="text-[11px] text-slate-400">
                         {formatDate(record.date)} • {record.checkIn ? formatTime(record.checkIn) : "N/A"} -{" "}
-                        {record.checkOut ? formatTime(record.checkOut) : "In Progress"}
+                        {record.checkOut ? formatTime(record.checkOut) : "Active"}
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-mono text-slate-400">
-                      {record.workingHours > 0 ? `${record.workingHours} hrs` : "—"}
+                      {record.workingHours > 0 ? `${record.workingHours}h` : "—"}
                     </span>
                     <Badge variant="status" value={record.status} />
                   </div>
@@ -491,9 +489,7 @@ export default function DashboardPage() {
                 {isAdmin || isHR ? "Pending Leave Approval Queue" : "My Leave Requests"}
               </h3>
               <p className="text-xs text-slate-400">
-                {isAdmin || isHR
-                  ? "Requests awaiting manager evaluation"
-                  : "Your submitted absence applications"}
+                {isAdmin || isHR ? "Requests awaiting manager evaluation" : "Your submitted absence applications"}
               </p>
             </div>
             <Link
@@ -529,9 +525,6 @@ export default function DashboardPage() {
                     <p className="text-[11px] text-slate-400">
                       {formatDate(leave.startDate)} to {formatDate(leave.endDate)} ({leave.daysCount} days)
                     </p>
-                    <p className="text-[11px] text-slate-400 italic truncate max-w-xs">
-                      "{leave.reason}"
-                    </p>
                   </div>
 
                   <div>
@@ -543,6 +536,14 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Geolocation Punch Modal */}
+      <GeolocationPunchModal
+        isOpen={geoPunchModalOpen}
+        onClose={() => setGeoPunchModalOpen(false)}
+        todayRecord={todayRecord}
+        onSuccess={() => fetchDashboardData()}
+      />
     </DashboardLayout>
   );
 }

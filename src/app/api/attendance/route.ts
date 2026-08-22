@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth/session";
 import { createAuditLog } from "@/lib/audit";
-import { AttendanceStatus } from "@/types";
+import {
+  validateGeofence,
+  validateIpAddress,
+  evaluateShiftCheckIn,
+  evaluateShiftCheckOut,
+  SHIFTS,
+} from "@/lib/attendance/shifts";
 
 // GET /api/attendance - List attendance records (Role-restricted)
 export async function GET(req: NextRequest) {
@@ -17,6 +23,7 @@ export async function GET(req: NextRequest) {
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
     const status = searchParams.get("status");
+    const department = searchParams.get("department");
 
     const isPrivileged = session.role === "ADMIN" || session.role === "HR";
 
@@ -33,6 +40,14 @@ export async function GET(req: NextRequest) {
       where.status = status;
     }
 
+    if (department && isPrivileged) {
+      where.user = {
+        profile: {
+          department,
+        },
+      };
+    }
+
     if (startDate && endDate) {
       where.date = {
         gte: new Date(startDate),
@@ -45,20 +60,24 @@ export async function GET(req: NextRequest) {
       include: {
         user: {
           select: {
+            id: true,
             email: true,
+            role: true,
             profile: {
               select: {
                 firstName: true,
                 lastName: true,
                 employeeId: true,
                 department: true,
+                designation: true,
+                avatarUrl: true,
               },
             },
           },
         },
       },
       orderBy: { date: "desc" },
-      take: 150,
+      take: 200,
     });
 
     return NextResponse.json({ records });
@@ -68,7 +87,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST /api/attendance - Check-in or Check-out (Self-service punch)
+// POST /api/attendance - Check-in or Check-out with Geolocation, Geofencing, Shift Rules & Overtime
 export async function POST(req: NextRequest) {
   try {
     const session = await getSessionUser();
@@ -77,10 +96,24 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { action = "auto", notes, targetUserId } = body;
+    const {
+      action = "auto",
+      notes,
+      targetUserId,
+      latitude,
+      longitude,
+      shiftType = "GENERAL",
+    } = body;
 
     const isPrivileged = session.role === "ADMIN" || session.role === "HR";
     const effectiveUserId = isPrivileged && targetUserId ? targetUserId : session.id;
+
+    // Capture IP Address & Validate Office Network
+    const clientIp = req.headers.get("x-forwarded-for") || "127.0.0.1";
+    const ipCheck = validateIpAddress(clientIp);
+
+    // Validate Geofence Location
+    const geofenceCheck = validateGeofence(latitude, longitude);
 
     // Normalize date to start of current day UTC
     const now = new Date();
@@ -100,51 +133,58 @@ export async function POST(req: NextRequest) {
     let auditAction = "";
 
     if (!record) {
-      // Perform Check-in
-      const hour = now.getHours();
-      const minute = now.getMinutes();
-      const isLate = hour > 9 || (hour === 9 && minute > 30);
-      const status: AttendanceStatus = isLate ? "LATE" : "PRESENT";
+      // 1. Perform Check-in with Shift Rules
+      const shiftEvaluation = evaluateShiftCheckIn(now, shiftType);
 
       resultRecord = await prisma.attendanceRecord.create({
         data: {
           userId: effectiveUserId,
           date: startOfToday,
           checkIn: now,
-          status,
+          status: shiftEvaluation.status,
+          penaltyApplied: shiftEvaluation.penaltyApplied,
+          shiftType,
           workingHours: 0,
-          notes: notes || (isLate ? "Late arrival" : "Standard check-in"),
-          ipAddress: req.headers.get("x-forwarded-for") || "127.0.0.1",
+          overtimeHours: 0,
+          latitude: latitude ? Number(latitude) : null,
+          longitude: longitude ? Number(longitude) : null,
+          locationName: geofenceCheck.locationLabel,
+          isGeofenceVerified: geofenceCheck.isVerified,
+          isIpVerified: ipCheck.isVerified,
+          ipAddress: clientIp,
+          notes: notes
+            ? `${shiftEvaluation.notes} | Note: ${notes}`
+            : shiftEvaluation.notes,
         },
       });
 
       auditAction = "ATTENDANCE_CHECKIN";
     } else if (!record.checkOut || action === "checkout") {
-      // Perform Check-out
-      const checkInTime = record.checkIn ? new Date(record.checkIn).getTime() : now.getTime();
-      const checkOutTime = now.getTime();
-      const hoursDiff = Math.max(0, (checkOutTime - checkInTime) / (1000 * 60 * 60));
-      const roundedHours = Math.round(hoursDiff * 100) / 100;
-
-      let newStatus = record.status;
-      if (roundedHours < 4.5 && record.status !== "ABSENT") {
-        newStatus = "HALF_DAY";
-      }
+      // 2. Perform Check-out with Overtime calculation
+      const checkInTime = record.checkIn ? new Date(record.checkIn) : now;
+      const checkoutEvaluation = evaluateShiftCheckOut(checkInTime, now, record.status);
 
       resultRecord = await prisma.attendanceRecord.update({
         where: { id: record.id },
         data: {
           checkOut: now,
-          workingHours: roundedHours,
-          status: newStatus,
-          notes: notes ? `${record.notes || ""}; ${notes}`.trim() : record.notes,
+          workingHours: checkoutEvaluation.workingHours,
+          overtimeHours: checkoutEvaluation.overtimeHours,
+          status: checkoutEvaluation.finalStatus,
+          latitude: latitude ? Number(latitude) : record.latitude,
+          longitude: longitude ? Number(longitude) : record.longitude,
+          locationName: geofenceCheck.locationLabel || record.locationName,
+          isGeofenceVerified: geofenceCheck.isVerified || record.isGeofenceVerified,
+          notes: notes
+            ? `${record.notes || ""}; ${checkoutEvaluation.notesAddition}; Note: ${notes}`.trim()
+            : `${record.notes || ""}; ${checkoutEvaluation.notesAddition}`.trim(),
         },
       });
 
       auditAction = "ATTENDANCE_CHECKOUT";
     } else {
       return NextResponse.json(
-        { error: "Attendance already completed for today", record },
+        { error: "Attendance punch already completed for today", record },
         { status: 400 }
       );
     }
@@ -157,24 +197,29 @@ export async function POST(req: NextRequest) {
       details: {
         userId: effectiveUserId,
         status: resultRecord.status,
-        checkIn: resultRecord.checkIn,
-        checkOut: resultRecord.checkOut,
+        shiftType: resultRecord.shiftType,
         workingHours: resultRecord.workingHours,
+        overtimeHours: resultRecord.overtimeHours,
+        isGeofenceVerified: resultRecord.isGeofenceVerified,
+        locationName: resultRecord.locationName,
       },
-      ipAddress: req.headers.get("x-forwarded-for") || "127.0.0.1",
+      ipAddress: clientIp,
     });
 
     return NextResponse.json({
-      message: auditAction === "ATTENDANCE_CHECKIN" ? "Checked in successfully" : "Checked out successfully",
+      message:
+        auditAction === "ATTENDANCE_CHECKIN"
+          ? `Check-in recorded (${resultRecord.status}) - ${geofenceCheck.locationLabel}`
+          : `Check-out recorded (${resultRecord.workingHours} hrs, ${resultRecord.overtimeHours} hrs OT)`,
       record: resultRecord,
     });
   } catch (error) {
     console.error("POST /api/attendance error:", error);
-    return NextResponse.json({ error: "Failed to record attendance" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to record attendance punch" }, { status: 500 });
   }
 }
 
-// PUT /api/attendance - Manual Attendance Adjustment / Ledger Override (Admin & HR only)
+// PUT /api/attendance - Manual Attendance Adjustment & Ledger Override
 export async function PUT(req: NextRequest) {
   try {
     const session = await getSessionUser();
@@ -192,7 +237,9 @@ export async function PUT(req: NextRequest) {
       checkIn,
       checkOut,
       status = "PRESENT",
+      shiftType = "GENERAL",
       workingHours = 8.5,
+      overtimeHours = 0.0,
       notes,
     } = body;
 
@@ -222,7 +269,9 @@ export async function PUT(req: NextRequest) {
         checkIn: checkInDate,
         checkOut: checkOutDate,
         status,
+        shiftType,
         workingHours: Number(workingHours),
+        overtimeHours: Number(overtimeHours),
         notes: notes ? `[Admin Adjusted by ${session.email}]: ${notes}` : `Adjusted by ${session.email}`,
       },
       create: {
@@ -231,7 +280,9 @@ export async function PUT(req: NextRequest) {
         checkIn: checkInDate,
         checkOut: checkOutDate,
         status,
+        shiftType,
         workingHours: Number(workingHours),
+        overtimeHours: Number(overtimeHours),
         notes: notes ? `[Admin Created by ${session.email}]: ${notes}` : `Created by ${session.email}`,
       },
       include: {
@@ -253,7 +304,9 @@ export async function PUT(req: NextRequest) {
         targetUserId: userId,
         adjustedDate: normalizedDate,
         status,
+        shiftType,
         workingHours,
+        overtimeHours,
         notes,
       },
       ipAddress: req.headers.get("x-forwarded-for") || "127.0.0.1",

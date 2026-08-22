@@ -284,8 +284,14 @@ async function main() {
 
       let status = "PRESENT";
       let workingHours = 8.5;
+      let overtimeHours = 0.0;
+      let shiftType = (dayOffset % 5 === 0) ? "MORNING" : (dayOffset % 8 === 0) ? "FLEXIBLE" : "GENERAL";
+      let penaltyApplied = "NONE";
       let checkIn: Date | null = new Date(date);
       let checkOut: Date | null = new Date(date);
+
+      // 25% of days have overtime
+      const hasOvertime = (dayOffset + user.email.length) % 4 === 0;
 
       if (isAbsent) {
         status = "ABSENT";
@@ -294,21 +300,32 @@ async function main() {
         workingHours = 0;
       } else if (isHalfDay) {
         status = "HALF_DAY";
+        penaltyApplied = "HALF_DAY_PENALTY";
         checkIn.setHours(9, 0, 0);
         checkOut.setHours(13, 15, 0);
         workingHours = 4.25;
       } else if (isLate) {
         status = "LATE";
+        penaltyApplied = "LATE_WARNING";
         checkIn.setHours(9, 45, 0);
         checkOut.setHours(18, 15, 0);
         workingHours = 8.5;
       } else {
         status = "PRESENT";
-        const randomMinutes = ((dayOffset * 3) % 20) - 10; // -10 to +10 mins
+        const randomMinutes = ((dayOffset * 3) % 20) - 10;
         checkIn.setHours(8, 55 + randomMinutes, 0);
-        checkOut.setHours(17, 30 + randomMinutes, 0);
-        workingHours = 8.5;
+        if (hasOvertime) {
+          checkOut.setHours(19, 30 + randomMinutes, 0);
+          workingHours = 10.5;
+          overtimeHours = 2.0;
+        } else {
+          checkOut.setHours(17, 30 + randomMinutes, 0);
+          workingHours = 8.5;
+          overtimeHours = 0.0;
+        }
       }
+
+      const isHQ = (dayOffset % 6 !== 0);
 
       await prisma.attendanceRecord.create({
         data: {
@@ -317,9 +334,24 @@ async function main() {
           checkIn,
           checkOut,
           status,
+          shiftType,
           workingHours,
-          notes: status === "LATE" ? "Traffic delay" : status === "HALF_DAY" ? "Medical appointment" : "Standard work day",
-          ipAddress: "192.168.1.104",
+          overtimeHours,
+          penaltyApplied,
+          latitude: isHQ ? 37.7749 : 37.7833,
+          longitude: isHQ ? -122.4194 : -122.4167,
+          locationName: isHQ ? "San Francisco HQ (Verified Geofence)" : "Remote / Client Location",
+          isGeofenceVerified: isHQ,
+          isIpVerified: isHQ,
+          notes:
+            status === "LATE"
+              ? "Late arrival past grace window"
+              : status === "HALF_DAY"
+              ? "Medical appointment / partial shift"
+              : overtimeHours > 0
+              ? `Standard shift + ${overtimeHours}h approved overtime`
+              : "Standard on-time shift",
+          ipAddress: isHQ ? "192.168.1.104" : "74.125.200.100",
         },
       });
     }
