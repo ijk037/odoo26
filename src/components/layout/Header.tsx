@@ -107,27 +107,27 @@ export function Header() {
     : user?.email || "User";
 
   return (
-    <header className="h-14 border-b-2 border-[#151D22] bg-[#FAF7F2] shadow-[0px_3px_0px_0px_rgba(21,29,34,1)] px-4 sm:px-6 flex items-center justify-between sticky top-0 z-40 transition-all">
+    <header className="h-14 shrink-0 border-b-2 border-[#151D22] bg-[#FAF7F2] shadow-[0px_3px_0px_0px_rgba(21,29,34,1)] px-3 sm:px-4 lg:px-6 flex items-center justify-between sticky top-0 z-40 transition-all">
       {/* Left: Title & Quick Search */}
-      <div className="flex items-center gap-4">
-        <h2 className="font-display-lg text-xs sm:text-sm md:text-base font-bold uppercase tracking-tight text-[#151D22] truncate max-w-[130px] sm:max-w-none">
+      <div className="flex items-center gap-3 shrink-0">
+        <h2 className="font-display-lg text-xs sm:text-sm lg:text-base font-bold uppercase tracking-tight text-[#151D22] truncate max-w-[140px] sm:max-w-[200px] lg:max-w-none">
           {getPageTitle()}
         </h2>
 
-        <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-[#F4EFEA] border border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]">
+        <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 bg-[#F4EFEA] border border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]">
           <Search className="w-3.5 h-3.5 text-[#717971]" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search records..."
-            className="bg-transparent border-none focus:outline-none text-xs font-mono w-36 text-[#151D22]"
+            placeholder="Search..."
+            className="bg-transparent border-none focus:outline-none text-xs font-mono w-28 text-[#151D22]"
           />
         </div>
       </div>
 
       {/* Center/Right: Role Navigation Tabs */}
-      <div className="hidden md:flex items-center gap-4 text-xs font-mono font-bold uppercase">
+      <div className="hidden 2xl:flex items-center gap-4 text-xs font-mono font-bold uppercase">
         <Link
           href="/dashboard"
           className={`pb-0.5 border-b-2 transition-colors ${
@@ -151,12 +151,12 @@ export function Header() {
       </div>
 
       {/* Right Controls */}
-      <div className="flex items-center gap-2.5 sm:gap-3">
+      <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
         {/* Attendance Widget */}
         <QuickAttendanceWidget />
 
         {/* Demo Switcher */}
-        <div className="relative">
+        <div className="relative shrink-0">
           <button
             onClick={() => setSwitcherOpen((prev) => !prev)}
             className="retro-btn-secondary px-2.5 py-1 text-xs font-bold uppercase flex items-center gap-1.5"

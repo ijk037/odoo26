@@ -124,18 +124,18 @@ export function QuickAttendanceWidget({ onAttendanceChange }: { onAttendanceChan
   }
 
   return (
-    <div className="flex items-center gap-2 bg-[#F4EFEA] border-2 border-[#151D22] p-1 px-2.5 shadow-[2px_2px_0px_0px_rgba(21,29,34,1)] font-mono text-xs">
-      <div className="hidden sm:flex items-center gap-1.5 font-bold text-[#151D22]">
+    <div className="flex items-center gap-1.5 sm:gap-2 bg-[#F4EFEA] border-2 border-[#151D22] p-1 px-2 shadow-[2px_2px_0px_0px_rgba(21,29,34,1)] font-mono text-xs shrink-0">
+      <div className="hidden xl:flex items-center gap-1.5 font-bold text-[#151D22]">
         <Clock className="w-3.5 h-3.5 text-[#346645]" />
         <span suppressHydrationWarning>{mounted ? (time || "--:--:--") : "--:--:--"}</span>
       </div>
 
-      <div className="hidden sm:block h-3.5 w-px bg-[#151D22]" />
+      <div className="hidden xl:block h-3.5 w-px bg-[#151D22]" />
 
       {isCompleted ? (
-        <div className="flex items-center gap-1 text-[11px] font-bold text-[#346645] bg-[#d6edd9] border border-[#346645] px-2 py-0.5">
+        <div className="flex items-center gap-1 text-[11px] font-bold text-[#346645] bg-[#d6edd9] border border-[#346645] px-1.5 sm:px-2 py-0.5 whitespace-nowrap">
           <CheckCircle2 className="w-3 h-3 shrink-0" />
-          <span>Shift Logged ({todayRecord?.workingHours}h)</span>
+          <span><span className="hidden md:inline">Shift Logged </span>({todayRecord?.workingHours}h)</span>
         </div>
       ) : isCheckedIn ? (
         <div className="flex items-center gap-2">
