@@ -22,32 +22,32 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
     name: "Eleanor Vance (CEO)",
     email: "admin@dayflow.com",
     password: "Admin@123",
-    badge: "Full System Access",
-    badgeColor: "bg-rose-500/10 text-rose-400 border-rose-500/30",
+    badge: "Full Access",
+    badgeColor: "bg-[#994621] text-white border border-[#151D22]",
     icon: ShieldCheck,
-    description: "Manage all employees, approve leaves, configure payroll & view audit logs",
+    description: "Manage workforce, approve leaves, configure wages & audit logs",
   },
   {
     role: "HR",
-    title: "HR Manager",
+    title: "HR Director",
     name: "Sophia Martinez (Head of HR)",
     email: "hr@dayflow.com",
     password: "Hr@123",
-    badge: "People & Ops Access",
-    badgeColor: "bg-purple-500/10 text-purple-400 border-purple-500/30",
+    badge: "HR Ops",
+    badgeColor: "bg-[#7b5500] text-white border border-[#151D22]",
     icon: UserCheck,
-    description: "Review attendance, approve leave requests & maintain team structures",
+    description: "Review attendance, process leave approvals & team compensation",
   },
   {
     role: "EMPLOYEE",
     title: "Staff Engineer",
-    name: "Alex Chen (Staff Engineer)",
+    name: "Alex Chen (Staff Dev)",
     email: "alex.chen@dayflow.com",
     password: "Alex@123",
-    badge: "Restricted Self-View",
-    badgeColor: "bg-cyan-500/10 text-cyan-400 border-cyan-500/30",
+    badge: "Self-Service",
+    badgeColor: "bg-[#346645] text-white border border-[#151D22]",
     icon: Code2,
-    description: "Check in/out, apply for leaves, view personal payslip & profile",
+    description: "GPS check in/out, submit leaves, inspect payslips & dossier",
   },
 ];
 
@@ -59,10 +59,10 @@ export function DemoAccountPicker({
   disabled?: boolean;
 }) {
   return (
-    <div className="space-y-3 pt-2">
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-        <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-        <span>One-Click Demo Roles (Instant Sign-in)</span>
+    <div className="space-y-3 pt-2 font-mono">
+      <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#151D22]">
+        <Sparkles className="w-3.5 h-3.5 text-[#346645]" />
+        <span>One-Click Demo Roles (Instant Access)</span>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
         {DEMO_ACCOUNTS.map((account) => {
@@ -73,29 +73,27 @@ export function DemoAccountPicker({
               type="button"
               disabled={disabled}
               onClick={() => onSelect(account.email, account.password)}
-              className="flex flex-col text-left p-3.5 rounded-xl border border-slate-800 bg-slate-900/80 hover:bg-slate-800/90 hover:border-indigo-500/50 transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-indigo-500/40 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex flex-col text-left p-3 border-2 border-[#151D22] bg-[#FAF7F2] hover:bg-[#edf4fd] shadow-[2px_2px_0px_0px_rgba(21,29,34,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all disabled:opacity-50"
             >
-              <div className="flex items-center justify-between w-full mb-1.5">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-slate-800 group-hover:bg-indigo-600/20 text-indigo-400 transition-colors">
-                    <Icon className="w-4 h-4" />
-                  </div>
-                  <span className="text-sm font-medium text-white group-hover:text-indigo-300 transition-colors">
+              <div className="flex items-center justify-between w-full mb-1">
+                <div className="flex items-center gap-1.5">
+                  <Icon className="w-3.5 h-3.5 text-[#346645]" />
+                  <span className="text-xs font-bold text-[#151D22] uppercase">
                     {account.title}
                   </span>
                 </div>
+                <span className={`text-[9px] px-1 py-0.2 font-bold uppercase ${account.badgeColor}`}>
+                  {account.badge}
+                </span>
               </div>
-              <p className="text-xs text-slate-300 font-medium truncate mb-1">
+              <p className="text-[11px] text-[#151D22] font-bold truncate">
                 {account.name}
               </p>
-              <p className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed">
+              <p className="text-[10px] text-[#717971] line-clamp-2 mt-0.5">
                 {account.description}
               </p>
-              <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-500 font-mono">
-                <span>{account.email}</span>
-                <span className="text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                  Click to Fill →
-                </span>
+              <div className="mt-2 pt-1 border-t border-[#151D22] text-[10px] text-[#346645] font-bold">
+                {account.email} →
               </div>
             </button>
           );

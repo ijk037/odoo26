@@ -13,7 +13,7 @@ export function Badge({
   children,
   ...props
 }: BadgeProps) {
-  let badgeStyle = "bg-slate-800 text-slate-300 border-slate-700";
+  let badgeStyle = "bg-[#FAF7F2] text-[#151D22] border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]";
 
   if (variant === "role" && value) {
     badgeStyle = getRoleBadgeClass(value);
@@ -24,13 +24,12 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors",
+        "inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider transition-all",
         badgeStyle,
         className
       )}
       {...props}
     >
-      <span className="w-1.5 h-1.5 rounded-full bg-current opacity-80" />
       {children || value}
     </span>
   );

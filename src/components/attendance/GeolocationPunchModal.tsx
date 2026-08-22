@@ -12,10 +12,7 @@ import {
   LogOut,
   X,
   Loader2,
-  AlertCircle,
   Sparkles,
-  Zap,
-  CheckCircle2,
 } from "lucide-react";
 import { SHIFTS, validateGeofence, OFFICE_HQ } from "@/lib/attendance/shifts";
 
@@ -37,14 +34,11 @@ export function GeolocationPunchModal({
   const [notes, setNotes] = useState<string>("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [geoLoading, setGeoLoading] = useState<boolean>(true);
-  const [geoError, setGeoError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
 
-  // Capture Browser GPS Coordinates on open
   useEffect(() => {
     if (isOpen) {
       setGeoLoading(true);
-      setGeoError(null);
 
       if ("geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition(
@@ -55,9 +49,8 @@ export function GeolocationPunchModal({
             });
             setGeoLoading(false);
           },
-          (err) => {
-            console.warn("Geolocation permission error/timeout:", err.message);
-            // Default to simulated office coordinates if permission is denied
+          () => {
+            // Default to simulated office coordinates
             setCoords({
               lat: OFFICE_HQ.latitude,
               lng: OFFICE_HQ.longitude,
@@ -106,9 +99,7 @@ export function GeolocationPunchModal({
       } else {
         if (action === "checkin") {
           toast.success(
-            `Checked in at ${formatTime(data.record.checkIn)}! Status: ${data.record.status} (${
-              data.record.locationName
-            })`,
+            `Checked in at ${formatTime(data.record.checkIn)}! Status: ${data.record.status}`,
             "Check-In Confirmed"
           );
         } else {
@@ -130,136 +121,116 @@ export function GeolocationPunchModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in-50">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-5">
+      <div className="retro-card-static bg-[#FAF7F2] max-w-lg w-full p-6 shadow-2xl space-y-4 font-mono">
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-          <div className="flex items-center gap-2.5">
+        <div className="flex items-center justify-between pb-3 border-b-2 border-[#151D22]">
+          <div className="flex items-center gap-2">
             <div
-              className={`p-2 rounded-xl ${
-                isCheckedIn ? "bg-rose-500/10 text-rose-400" : "bg-indigo-500/10 text-indigo-400"
+              className={`p-2 border border-[#151D22] ${
+                isCheckedIn ? "bg-[#ffdad6] text-[#ba1a1a]" : "bg-[#d6edd9] text-[#346645]"
               }`}
             >
               {isCheckedIn ? <LogOut className="w-5 h-5" /> : <LogIn className="w-5 h-5" />}
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">
+              <h3 className="font-display-lg text-base font-bold uppercase text-[#151D22]">
                 {isCheckedIn ? "Complete Working Shift" : "Verified Shift Check-In"}
               </h3>
-              <p className="text-xs text-slate-400">
-                Browser GPS Geofence validation & shift rule enforcement
-              </p>
+              <p className="text-xs text-[#414942]">GPS Geofence validation & shift rule enforcement</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+            className="p-1 border border-[#151D22] bg-[#FAF7F2] hover:bg-[#ffdad6]"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Geolocation & Geofence Verification Card */}
-        <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-3">
+        {/* Geolocation Verification Card */}
+        <div className="p-3 bg-[#edf4fd] border-2 border-[#151D22] space-y-2 text-xs shadow-[2px_2px_0px_0px_rgba(21,29,34,1)]">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
-              <MapPin className="w-4 h-4 text-indigo-400" />
-              <span>Presence Geofence Verification</span>
+            <div className="flex items-center gap-1.5 font-bold text-[#151D22]">
+              <MapPin className="w-4 h-4 text-[#346645]" />
+              <span>Presence Geofence Verification:</span>
             </div>
             {geoLoading ? (
-              <span className="flex items-center gap-1 text-[10px] text-slate-400">
-                <Loader2 className="w-3 h-3 animate-spin text-indigo-400" />
+              <span className="flex items-center gap-1 text-[10px] text-[#717971]">
+                <Loader2 className="w-3 h-3 animate-spin text-[#346645]" />
                 <span>Locating GPS...</span>
               </span>
             ) : geofenceResult?.isVerified ? (
-              <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold flex items-center gap-1">
-                <ShieldCheck className="w-3 h-3" />
-                <span>HQ Geofence Verified</span>
+              <span className="px-1.5 py-0.5 bg-[#d6edd9] text-[#142c1e] border border-[#346645] text-[10px] font-bold">
+                HQ Geofence Verified
               </span>
             ) : (
-              <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-bold flex items-center gap-1">
-                <Globe className="w-3 h-3" />
-                <span>Remote / Field Presence</span>
+              <span className="px-1.5 py-0.5 bg-[#ffdbce] text-[#370e00] border border-[#994621] text-[10px] font-bold">
+                Remote / Field Presence
               </span>
             )}
           </div>
 
-          <div className="text-xs text-slate-400 space-y-1">
-            <p className="text-slate-300 font-medium">
+          <div className="text-[11px] text-[#414942]">
+            <p className="font-bold text-[#151D22]">
               {geofenceResult?.locationLabel || "San Francisco Headquarters (Within 1000m)"}
             </p>
             {coords && (
-              <p className="text-[10px] font-mono text-slate-500">
+              <p className="text-[10px] text-[#717971]">
                 Coordinates: {coords.lat.toFixed(4)}° N, {coords.lng.toFixed(4)}° W
               </p>
             )}
           </div>
         </div>
 
-        {/* Shift Selection (For Check-In) */}
+        {/* Shift Selection */}
         {!isCheckedIn && (
-          <div className="space-y-3 text-xs">
-            <label className="block font-semibold text-slate-300">Assigned Shift Schedule</label>
+          <div className="space-y-2 text-xs">
+            <label className="block font-bold text-[#151D22] uppercase">Assigned Shift Schedule</label>
             <div className="grid grid-cols-2 gap-2">
               {Object.values(SHIFTS).map((s) => (
                 <button
                   key={s.type}
                   type="button"
                   onClick={() => setShiftType(s.type)}
-                  className={`p-3 rounded-xl border text-left transition-all ${
+                  className={`p-2 border-2 text-left transition-all font-mono ${
                     shiftType === s.type
-                      ? "bg-indigo-600/20 border-indigo-500 text-white shadow-sm"
-                      : "bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700"
+                      ? "bg-[#d6edd9] border-[#151D22] shadow-[2px_2px_0px_0px_rgba(21,29,34,1)] font-bold text-[#151D22]"
+                      : "bg-[#FAF7F2] border-[#2D3134] text-[#414942] hover:bg-[#edf4fd]"
                   }`}
                 >
-                  <span className="font-bold block text-slate-200">{s.type}</span>
-                  <span className="text-[10px] font-mono text-indigo-300 block">
+                  <span className="font-bold block text-xs">{s.type}</span>
+                  <span className="text-[10px] block">
                     {s.startTime} - {s.endTime}
                   </span>
-                  <span className="text-[9px] text-slate-500 block mt-0.5">
-                    Grace: +{s.graceMinutes}m | Late: {s.lateThreshold}
-                  </span>
+                  <span className="text-[9px] text-[#717971] block">Late cut-off: {s.lateThreshold}</span>
                 </button>
               ))}
             </div>
 
-            {/* Shift Rules Hint */}
-            <div className="p-3 rounded-xl bg-indigo-950/30 border border-indigo-500/20 text-[11px] text-indigo-300 space-y-1">
-              <div className="flex items-center gap-1.5 font-semibold text-white">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Shift Penalty Policy:</span>
-              </div>
-              <p className="text-slate-300">
-                Check in by <strong>{currentShift.lateThreshold}</strong> logs <span className="text-emerald-400 font-bold">PRESENT</span>.
-                Arrivals past <strong>{currentShift.halfDayThreshold}</strong> automatically incur a <span className="text-purple-400 font-bold">HALF-DAY</span> deduction. Working &gt; 8.5h logs approved <span className="text-amber-400 font-bold">Overtime (OT)</span>.
-              </p>
+            <div className="p-2 bg-[#E6A938]/20 border border-[#E6A938] text-[11px] text-[#151D22]">
+              <span className="font-bold">Shift Policy:</span> Check in by {currentShift.lateThreshold} logs PRESENT. Working &gt; 8.5h logs billable Overtime (OT).
             </div>
           </div>
         )}
 
-        {/* Remarks / Notes */}
-        <div>
-          <label className="block text-slate-300 text-xs font-semibold mb-1">
-            Punch Remarks (Optional)
-          </label>
+        {/* Remarks */}
+        <div className="text-xs">
+          <label className="block font-bold text-[#151D22] uppercase mb-1">Punch Remarks (Optional)</label>
           <input
             type="text"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder={
-              isCheckedIn
-                ? "e.g. Completed sprint deliverables, customer demos"
-                : "e.g. Office desk 4B, client on-site meeting"
-            }
-            className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500"
+            placeholder={isCheckedIn ? "e.g. Completed sprint deliverables" : "e.g. Desk 4B, on-site meetings"}
+            className="w-full p-2 retro-input text-xs"
           />
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+        <div className="flex items-center justify-end gap-2 pt-2 border-t-2 border-[#151D22]">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+            className="retro-btn-secondary px-3 py-1.5 text-xs font-bold uppercase"
           >
             Cancel
           </button>
@@ -267,16 +238,14 @@ export function GeolocationPunchModal({
             type="button"
             disabled={submitting || geoLoading}
             onClick={handlePunch}
-            className={`px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 text-white text-xs shadow-lg transition-all disabled:opacity-50 ${
-              isCheckedIn
-                ? "bg-rose-600 hover:bg-rose-500 shadow-rose-600/30"
-                : "bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/30"
+            className={`px-4 py-2 text-xs font-bold uppercase flex items-center gap-1.5 ${
+              isCheckedIn ? "retro-btn-danger" : "retro-btn-primary"
             }`}
           >
             {submitting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Recording Punch...</span>
+                <span>Recording...</span>
               </>
             ) : isCheckedIn ? (
               <>
@@ -286,7 +255,7 @@ export function GeolocationPunchModal({
             ) : (
               <>
                 <LogIn className="w-4 h-4" />
-                <span>Verified Geofence Check-In</span>
+                <span>Verified GPS Check-In</span>
               </>
             )}
           </button>

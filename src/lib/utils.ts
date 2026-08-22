@@ -47,12 +47,12 @@ export function formatTime(date: string | Date | null | undefined): string {
 export function getRoleBadgeClass(role: string): string {
   switch (role) {
     case "ADMIN":
-      return "bg-rose-500/10 text-rose-400 border-rose-500/20";
+      return "bg-[#994621] text-white border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]";
     case "HR":
-      return "bg-purple-500/10 text-purple-400 border-purple-500/20";
+      return "bg-[#7b5500] text-white border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]";
     case "EMPLOYEE":
     default:
-      return "bg-cyan-500/10 text-cyan-400 border-cyan-500/20";
+      return "bg-[#346645] text-white border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]";
   }
 }
 
@@ -61,20 +61,20 @@ export function getStatusBadgeClass(status: string): string {
     case "ACTIVE":
     case "APPROVED":
     case "PRESENT":
-      return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+      return "bg-[#4d7f5c] text-white border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]";
     case "PENDING":
     case "HALF_DAY":
     case "LATE":
-      return "bg-amber-500/10 text-amber-400 border-amber-500/20";
+      return "bg-[#E6A938] text-[#151D22] border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)] font-bold";
     case "REJECTED":
     case "ABSENT":
     case "SUSPENDED":
     case "INACTIVE":
-      return "bg-rose-500/10 text-rose-400 border-rose-500/20";
+      return "bg-[#ba1a1a] text-white border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]";
     case "ON_LEAVE":
     case "CANCELLED":
-      return "bg-slate-500/10 text-slate-400 border-slate-500/20";
+      return "bg-[#dce3eb] text-[#151D22] border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]";
     default:
-      return "bg-slate-500/10 text-slate-400 border-slate-500/20";
+      return "bg-[#dce3eb] text-[#151D22] border-2 border-[#151D22] shadow-[1px_1px_0px_0px_rgba(21,29,34,1)]";
   }
 }

@@ -10,10 +10,9 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { TrendingUp, Clock } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 
 export function PunctualityTrendChart({ records = [] }: { records: any[] }) {
-  // Aggregate daily status counts over rolling 14 days
   const dayMap: Record<string, { date: string; onTime: number; late: number; halfDay: number; onLeave: number }> = {};
 
   const today = new Date();
@@ -44,91 +43,74 @@ export function PunctualityTrendChart({ records = [] }: { records: any[] }) {
   const chartData = Object.values(dayMap);
 
   return (
-    <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4 shadow-sm">
-      <div className="flex items-center justify-between">
+    <div className="retro-card p-5 bg-[#FAF7F2] space-y-3 font-mono">
+      <div className="flex items-center justify-between pb-2 border-b-2 border-[#151D22]">
         <div className="flex items-center gap-2">
-          <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+          <div className="p-1.5 bg-[#edf4fd] border border-[#151D22] text-[#346645]">
             <TrendingUp className="w-4 h-4" />
           </div>
           <div>
-            <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-              14-Day Punctuality & Attendance Trend
+            <h4 className="font-display-lg text-xs font-bold uppercase tracking-wider text-[#151D22]">
+              14-Day Punctuality Trend
             </h4>
-            <p className="text-[11px] text-slate-400">Daily distribution of on-time, late, and leave logs</p>
+            <p className="text-[10px] text-[#414942]">Daily distribution of on-time, late, and leave logs</p>
           </div>
         </div>
       </div>
 
-      <div className="h-64 w-full">
+      <div className="h-60 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-            <defs>
-              <linearGradient id="colorOnTime" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
-              </linearGradient>
-              <linearGradient id="colorLate" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.0} />
-              </linearGradient>
-              <linearGradient id="colorHalfDay" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.0} />
-              </linearGradient>
-              <linearGradient id="colorLeave" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="#6366f1" stopOpacity={0.0} />
-              </linearGradient>
-            </defs>
-            <XAxis dataKey="date" stroke="#64748b" fontSize={10} tickLine={false} axisLine={{ stroke: "#334155" }} />
-            <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={{ stroke: "#334155" }} allowDecimals={false} />
+            <XAxis dataKey="date" stroke="#151D22" fontSize={10} tickLine={true} axisLine={{ stroke: "#151D22", strokeWidth: 2 }} />
+            <YAxis stroke="#151D22" fontSize={10} tickLine={true} axisLine={{ stroke: "#151D22", strokeWidth: 2 }} allowDecimals={false} />
             <Tooltip
               contentStyle={{
-                backgroundColor: "#0f172a",
-                borderColor: "#334155",
-                borderRadius: "0.75rem",
-                color: "#fff",
+                backgroundColor: "#FAF7F2",
+                border: "2px solid #151D22",
+                boxShadow: "3px 3px 0px 0px rgba(21,29,34,1)",
+                color: "#151D22",
+                fontFamily: "JetBrains Mono",
                 fontSize: "12px",
+                fontWeight: "bold",
               }}
             />
             <Legend
-              wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }}
-              formatter={(val) => <span className="text-slate-300 font-medium">{val}</span>}
+              wrapperStyle={{ fontSize: "10px", paddingTop: "8px", fontFamily: "JetBrains Mono", fontWeight: "bold" }}
             />
             <Area
               type="monotone"
               dataKey="onTime"
-              name="On-Time (Present)"
-              stroke="#10b981"
-              fillOpacity={1}
-              fill="url(#colorOnTime)"
+              name="On-Time"
+              stroke="#346645"
+              fill="#346645"
+              fillOpacity={0.6}
               stackId="1"
             />
             <Area
               type="monotone"
               dataKey="late"
-              name="Late Arrivals"
-              stroke="#f59e0b"
-              fillOpacity={1}
-              fill="url(#colorLate)"
+              name="Late"
+              stroke="#E6A938"
+              fill="#E6A938"
+              fillOpacity={0.6}
               stackId="1"
             />
             <Area
               type="monotone"
               dataKey="halfDay"
-              name="Half-Days"
-              stroke="#8b5cf6"
-              fillOpacity={1}
-              fill="url(#colorHalfDay)"
+              name="Half-Day"
+              stroke="#994621"
+              fill="#994621"
+              fillOpacity={0.6}
               stackId="1"
             />
             <Area
               type="monotone"
               dataKey="onLeave"
               name="On Leave"
-              stroke="#6366f1"
-              fillOpacity={1}
-              fill="url(#colorLeave)"
+              stroke="#717971"
+              fill="#717971"
+              fillOpacity={0.4}
               stackId="1"
             />
           </AreaChart>

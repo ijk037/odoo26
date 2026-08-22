@@ -56,21 +56,19 @@ function LoginForm() {
   };
 
   return (
-    <div className="bg-slate-900/90 border border-slate-800/90 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl space-y-6">
+    <div className="retro-card-static bg-[#FAF7F2] p-6 sm:p-8 shadow-[5px_5px_0px_0px_rgba(21,29,34,1)] space-y-5 font-mono">
       {error && (
-        <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-start gap-3 text-xs text-rose-300">
+        <div className="p-3 bg-[#ffdad6] border-2 border-[#ba1a1a] flex items-start gap-2 text-xs text-[#ba1a1a] font-bold">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4 text-xs">
         <div>
-          <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-            Work Email Address
-          </label>
+          <label className="block font-bold text-[#151D22] uppercase mb-1">Work Email Address</label>
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#717971]">
               <Mail className="w-4 h-4" />
             </div>
             <input
@@ -79,19 +77,15 @@ function LoginForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="employee@dayflow.com"
-              className="block w-full pl-10 pr-4 py-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+              className="block w-full pl-9 pr-3 py-2.5 retro-input text-xs"
             />
           </div>
         </div>
 
         <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-xs font-semibold text-slate-300">
-              Password
-            </label>
-          </div>
+          <label className="block font-bold text-[#151D22] uppercase mb-1">Password</label>
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#717971]">
               <Lock className="w-4 h-4" />
             </div>
             <input
@@ -100,7 +94,7 @@ function LoginForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••••••"
-              className="block w-full pl-10 pr-4 py-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+              className="block w-full pl-9 pr-3 py-2.5 retro-input text-xs"
             />
           </div>
         </div>
@@ -108,7 +102,7 @@ function LoginForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 shadow-lg shadow-indigo-600/30 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+          className="w-full retro-btn-primary py-3 px-4 text-xs font-bold uppercase flex items-center justify-center gap-2 mt-2"
         >
           {loading ? (
             <>
@@ -125,17 +119,14 @@ function LoginForm() {
       </form>
 
       {/* 1-Click Demo Accounts */}
-      <div className="pt-2 border-t border-slate-800">
+      <div className="pt-2 border-t-2 border-[#151D22]">
         <DemoAccountPicker onSelect={handleSelectDemo} disabled={loading} />
       </div>
 
       {/* Registration link */}
-      <div className="text-center pt-2 text-xs text-slate-400">
-        Need a new employee profile?{" "}
-        <Link
-          href="/register"
-          className="font-medium text-indigo-400 hover:text-indigo-300 underline underline-offset-4"
-        >
+      <div className="text-center pt-2 text-xs text-[#717971]">
+        Need a new workforce account?{" "}
+        <Link href="/register" className="font-bold text-[#346645] underline underline-offset-4">
           Register here
         </Link>
       </div>
@@ -145,29 +136,25 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen bg-[#080c14] flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Background glow effects */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-10 right-10 w-[400px] h-[400px] bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
-
+    <div className="min-h-screen bg-[#F4EFEA] flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
       <div className="sm:mx-auto sm:w-full sm:max-w-xl z-10 px-4">
         {/* Header Logo */}
-        <div className="text-center space-y-2 mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-500 text-white shadow-xl shadow-indigo-500/25 mb-3">
+        <div className="text-center space-y-2 mb-6">
+          <div className="inline-flex items-center justify-center w-14 h-14 bg-[#346645] border-2 border-[#151D22] shadow-[3px_3px_0px_0px_rgba(21,29,34,1)] text-white mb-2">
             <Building2 className="w-7 h-7" />
           </div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Sign in to Dayflow HRMS
+          <h2 className="font-display-lg text-2xl sm:text-3xl font-extrabold uppercase text-[#151D22] tracking-tight">
+            Dayflow HRMS
           </h2>
-          <p className="text-xs sm:text-sm text-slate-400">
-            Enterprise Human Resource Management & Access Portal
+          <p className="font-mono text-xs text-[#414942]">
+            Retro-Tactile Enterprise Human Resource Management Portal
           </p>
         </div>
 
         <Suspense
           fallback={
-            <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-12 text-center text-slate-400 text-xs">
-              <Loader2 className="w-6 h-6 animate-spin mx-auto text-indigo-400 mb-2" />
+            <div className="retro-card p-12 text-center text-[#717971] text-xs font-mono">
+              <Loader2 className="w-6 h-6 animate-spin mx-auto text-[#346645] mb-2" />
               Loading login portal...
             </div>
           }

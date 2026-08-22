@@ -13,23 +13,16 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  Calendar,
   AlertCircle,
   AlertTriangle,
   X,
   Loader2,
-  FileText,
   Trash2,
-  MessageSquare,
-  ShieldCheck,
-  Ban,
   CheckCheck,
   Sparkles,
-  Info,
-  Layers,
-  HelpCircle,
+  Check,
 } from "lucide-react";
-import { ANNUAL_LEAVE_POLICIES, LeaveCategoryQuota } from "@/lib/leaves/quota";
+import { LeaveCategoryQuota } from "@/lib/leaves/quota";
 
 export default function LeavesPage() {
   const { user, isAdmin, isHR } = useAuth();
@@ -41,14 +34,14 @@ export default function LeavesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  // Leave Review Modal State (HR/Admin)
+  // Review Modal State
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [selectedReviewLeave, setSelectedReviewLeave] = useState<any>(null);
   const [reviewDecision, setReviewDecision] = useState<"APPROVED" | "REJECTED">("APPROVED");
   const [reviewRemarks, setReviewRemarks] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
-  // New leave form state
+  // New leave form
   const [newLeave, setNewLeave] = useState({
     leaveType: "PAID",
     startDate: "",
@@ -61,7 +54,6 @@ export default function LeavesPage() {
   const [formWarning, setFormWarning] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Dynamically calculate working days & run client boundary checks
   useEffect(() => {
     if (newLeave.startDate && newLeave.endDate) {
       const start = new Date(newLeave.startDate);
@@ -74,20 +66,18 @@ export default function LeavesPage() {
         return;
       }
 
-      // Past date check
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const startDay = new Date(start);
       startDay.setHours(0, 0, 0, 0);
 
       if (startDay < today && !newLeave.adminOverride) {
-        setFormError("Applications cannot be backdated. Contact HR for retroactive leave requests.");
+        setFormError("Applications cannot be backdated. Request Admin override if retroactive.");
         setCalculatedDays(0);
         setFormWarning(null);
         return;
       }
 
-      // Compute working days (excluding weekends)
       let workingDays = 0;
       const cur = new Date(start);
       while (cur <= end) {
@@ -106,7 +96,6 @@ export default function LeavesPage() {
         return;
       }
 
-      // Check remaining balance
       const currentCategory = balances[newLeave.leaveType];
       if (currentCategory && !currentCategory.isUnlimited) {
         if (workingDays > currentCategory.availableDays) {
@@ -120,11 +109,10 @@ export default function LeavesPage() {
 
       setFormError(null);
 
-      // Warning check
       if (newLeave.leaveType === "UNPAID") {
-        setFormWarning("Notice: Unpaid leave will result in proportional Loss of Pay (LOP) payroll deductions.");
+        setFormWarning("Notice: Unpaid leave calculates proportional Loss of Pay (LOP) payroll deductions.");
       } else if (currentCategory && currentCategory.availableDays - workingDays <= 2) {
-        setFormWarning(`Notice: Low remaining balance (${(currentCategory.availableDays - workingDays).toFixed(1)} days left after approval).`);
+        setFormWarning(`Notice: Low remaining balance (${(currentCategory.availableDays - workingDays).toFixed(1)} days left).`);
       } else {
         setFormWarning(null);
       }
@@ -179,7 +167,7 @@ export default function LeavesPage() {
         toast.error(data.error || "Policy validation failed", "Application Blocked");
       } else {
         toast.success(
-          `Leave request for ${calculatedDays} day(s) submitted for manager review!`,
+          `Leave request for ${calculatedDays} day(s) submitted for review!`,
           "Application Sent"
         );
         setModalOpen(false);
@@ -195,14 +183,13 @@ export default function LeavesPage() {
     } catch (err) {
       console.error("Error applying leave:", err);
       setFormError("Network communication error");
-      toast.error("Failed to submit due to network error", "Error");
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleCancelLeave = async (leaveId: string) => {
-    if (!confirm("Are you sure you want to withdraw and cancel this pending leave request? Days will be immediately restored.")) {
+    if (!confirm("Are you sure you want to withdraw and cancel this pending leave request? Quota will be restored.")) {
       return;
     }
 
@@ -222,19 +209,17 @@ export default function LeavesPage() {
       }
     } catch (err) {
       console.error("Failed to cancel leave:", err);
-      toast.error("Network error while cancelling", "Error");
     } finally {
       setActionLoading(null);
     }
   };
 
-  // Process HR Decision Modal Submit
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedReviewLeave) return;
 
     if (reviewDecision === "REJECTED" && (!reviewRemarks || reviewRemarks.trim().length === 0)) {
-      toast.error("Mandatory feedback required when rejecting a leave application", "Validation");
+      toast.error("Mandatory feedback required when rejecting a leave request", "Validation");
       return;
     }
 
@@ -256,9 +241,7 @@ export default function LeavesPage() {
         toast.error(data.error || "Failed to process evaluation", "Error");
       } else {
         toast.success(
-          `Leave request ${reviewDecision.toLowerCase()} successfully! ${
-            reviewDecision === "APPROVED" ? "(Attendance ledger auto-synced)" : "(Quota hold released)"
-          }`,
+          `Leave request ${reviewDecision.toLowerCase()} successfully!`,
           reviewDecision === "APPROVED" ? "Leave Approved & Synced" : "Leave Rejected"
         );
         setReviewModalOpen(false);
@@ -266,7 +249,6 @@ export default function LeavesPage() {
       }
     } catch (err) {
       console.error("Leave evaluation error:", err);
-      toast.error("Network error during evaluation", "Error");
     } finally {
       setReviewSubmitting(false);
     }
@@ -277,13 +259,13 @@ export default function LeavesPage() {
   return (
     <DashboardLayout>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b-2 border-[#151D22] pb-3 font-mono">
         <div>
-          <h2 className="text-xl font-bold text-white tracking-tight">Time Off & Quota Policy Engine</h2>
-          <p className="text-xs text-slate-400">
-            {isAdmin || isHR
-              ? "Organization-wide leave management with automated quota deduction, overlap prevention, and attendance sync"
-              : "Automated leave balance tracking, boundary validation, and absence self-service"}
+          <h2 className="font-display-lg text-2xl font-extrabold uppercase text-[#151D22]">
+            Time Off & Leave Management
+          </h2>
+          <p className="text-xs text-[#414942]">
+            Dynamic Quota Tracking, Boundary Validation, and Attendance Synchronization
           </p>
         </div>
 
@@ -293,7 +275,7 @@ export default function LeavesPage() {
             setFormWarning(null);
             setModalOpen(true);
           }}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/30 transition-all self-start sm:self-auto hover:scale-[1.02]"
+          className="retro-btn-primary px-4 py-2 text-xs font-mono font-bold uppercase flex items-center gap-1.5 self-start sm:self-auto"
         >
           <PlusCircle className="w-4 h-4" />
           <span>Apply for Time Off</span>
@@ -301,67 +283,43 @@ export default function LeavesPage() {
       </div>
 
       {/* Dynamic Quota Balances Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-mono">
         {["PAID", "SICK", "CASUAL", "UNPAID"].map((type) => {
           const quota = balances[type];
           if (!quota) return null;
 
-          const isLow = !quota.isUnlimited && quota.availableDays <= 2 && quota.availableDays > 0;
-          const isExhausted = !quota.isUnlimited && quota.availableDays === 0;
-
           return (
             <div
               key={type}
-              className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3 shadow-sm hover:border-slate-700 transition-all"
+              className="retro-card p-4 bg-[#FAF7F2] space-y-2 flex flex-col justify-between"
             >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-white uppercase tracking-wider">
-                  {quota.name.split(" ")[0]} Leave
-                </span>
-                <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${quota.badgeClass}`}>
-                  {quota.isUnlimited ? "Unlimited" : `${quota.totalQuota}d / Year`}
+              <div className="flex items-center justify-between border-b border-[#151D22] pb-1.5">
+                <span className="text-xs font-bold uppercase text-[#151D22]">{quota.name.split(" ")[0]} Leave</span>
+                <span className="px-1.5 py-0.2 bg-[#E6A938] text-[#151D22] border border-[#151D22] text-[10px] font-bold">
+                  {quota.isUnlimited ? "Unlimited" : `${quota.totalQuota}d / Yr`}
                 </span>
               </div>
 
-              <div className="flex items-baseline justify-between">
-                <span className="text-2xl font-extrabold text-white font-mono">
+              <div className="flex items-baseline justify-between pt-1">
+                <span className="font-display-lg text-2xl font-bold text-[#151D22]">
                   {quota.isUnlimited ? "Active" : `${quota.availableDays} Days`}
                 </span>
-                <span className="text-xs text-slate-400">
-                  {quota.isUnlimited ? "LOP Policy" : `Used: ${quota.usedDays}d`}
-                </span>
+                <span className="text-xs text-[#717971]">Used: {quota.usedDays}d</span>
               </div>
 
               {!quota.isUnlimited && (
-                <div className="space-y-1.5">
-                  <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden p-0.5 border border-slate-800">
+                <div className="space-y-1">
+                  <div className="w-full bg-[#edf4fd] h-2.5 border border-[#151D22] p-0.2">
                     <div
-                      className={`h-full rounded-full transition-all ${
-                        isExhausted ? "bg-rose-500" : isLow ? "bg-amber-500" : quota.colorClass
-                      }`}
+                      className="h-full bg-[#346645]"
                       style={{ width: `${Math.min(100, quota.percentageUsed)}%` }}
                     />
                   </div>
-                  <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+                  <div className="flex justify-between text-[10px] text-[#717971]">
                     <span>{quota.usedDays} approved</span>
-                    {quota.pendingDays > 0 && (
-                      <span className="text-amber-400 font-bold">+{quota.pendingDays}d pending</span>
-                    )}
+                    {quota.pendingDays > 0 && <span className="text-[#994621] font-bold">+{quota.pendingDays}d pending</span>}
                     <span>{quota.availableDays} left</span>
                   </div>
-                </div>
-              )}
-
-              {isLow && (
-                <div className="flex items-center gap-1 text-[10px] text-amber-400 font-semibold">
-                  <AlertTriangle className="w-3 h-3" />
-                  <span>Low balance remaining</span>
-                </div>
-              )}
-              {isExhausted && (
-                <div className="flex items-center gap-1 text-[10px] text-rose-400 font-semibold">
-                  <Ban className="w-3 h-3" />
-                  <span>Annual quota exhausted</span>
                 </div>
               )}
             </div>
@@ -371,62 +329,42 @@ export default function LeavesPage() {
 
       {/* HR / Admin Approval Queue Section */}
       {(isAdmin || isHR) && pendingLeaves.length > 0 && (
-        <div className="rounded-2xl border border-amber-500/30 bg-amber-950/10 p-5 space-y-4 shadow-lg">
-          <div className="flex items-center justify-between">
+        <div className="retro-card p-5 bg-[#FAF7F2] space-y-4 font-mono">
+          <div className="flex items-center justify-between border-b-2 border-[#151D22] pb-2">
             <div className="flex items-center gap-2">
-              <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400">
+              <div className="p-1.5 bg-[#E6A938] border border-[#151D22] text-[#151D22]">
                 <Clock className="w-4 h-4" />
               </div>
-              <div>
-                <h3 className="text-sm font-bold text-white">Pending Approval Queue ({pendingLeaves.length})</h3>
-                <p className="text-xs text-slate-400">
-                  Approving automatically marks calendar dates as <strong className="text-emerald-400">ON_LEAVE</strong> and locks quota
-                </p>
-              </div>
+              <h3 className="font-display-lg text-sm font-bold uppercase text-[#151D22]">
+                Pending Approval Queue ({pendingLeaves.length})
+              </h3>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {pendingLeaves.map((l) => (
-              <div
-                key={l.id}
-                className="rounded-xl bg-slate-900/90 border border-slate-800 p-4 space-y-3 shadow-md"
-              >
+              <div key={l.id} className="p-4 bg-[#F4EFEA] border-2 border-[#151D22] space-y-3 shadow-[2px_2px_0px_0px_rgba(21,29,34,1)]">
                 <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-600/20 text-indigo-300 font-bold flex items-center justify-center text-xs">
-                      {l.user?.profile?.firstName?.slice(0, 1) || "U"}
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-white">
-                        {l.user?.profile ? `${l.user.profile.firstName} ${l.user.profile.lastName}` : l.user?.email}
-                      </h4>
-                      <p className="text-[11px] text-slate-400">
-                        {l.user?.profile?.employeeId} • {l.user?.profile?.department}
-                      </p>
-                    </div>
+                  <div>
+                    <h4 className="font-bold text-xs text-[#151D22]">
+                      {l.user?.profile ? `${l.user.profile.firstName} ${l.user.profile.lastName}` : l.user?.email}
+                    </h4>
+                    <p className="text-[10px] text-[#717971]">{l.user?.profile?.employeeId} • {l.user?.profile?.department}</p>
                   </div>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-mono">
+                  <span className="px-1.5 py-0.2 bg-[#E6A938] text-[#151D22] border border-[#151D22] text-[10px] font-bold">
                     {l.leaveType}
                   </span>
                 </div>
 
-                <div className="text-xs text-slate-300 space-y-1.5 bg-slate-950/60 p-3 rounded-lg border border-slate-800/80">
+                <div className="p-2 bg-[#FAF7F2] border border-[#151D22] text-xs space-y-1">
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Requested Window:</span>
-                    <span className="font-semibold text-slate-200 font-mono">
-                      {formatDate(l.startDate)} - {formatDate(l.endDate)} ({l.daysCount} business days)
-                    </span>
+                    <span className="text-[#717971]">Window:</span>
+                    <span className="font-bold">{formatDate(l.startDate)} - {formatDate(l.endDate)} ({l.daysCount}d)</span>
                   </div>
-                  <div>
-                    <span className="text-slate-500 block mb-0.5">Applicant Remarks:</span>
-                    <p className="italic text-slate-300 bg-slate-900/60 p-1.5 rounded border border-slate-800">
-                      "{l.reason}"
-                    </p>
-                  </div>
+                  <div className="italic text-[#414942]">"{l.reason}"</div>
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-1">
+                <div className="flex justify-end gap-2 pt-1">
                   <button
                     onClick={() => {
                       setSelectedReviewLeave(l);
@@ -434,9 +372,9 @@ export default function LeavesPage() {
                       setReviewRemarks("");
                       setReviewModalOpen(true);
                     }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 text-xs font-semibold transition-colors"
+                    className="retro-btn-danger px-2.5 py-1 text-xs font-bold uppercase flex items-center gap-1"
                   >
-                    <XCircle className="w-3.5 h-3.5" />
+                    <X className="w-3.5 h-3.5" />
                     <span>Reject</span>
                   </button>
 
@@ -444,13 +382,13 @@ export default function LeavesPage() {
                     onClick={() => {
                       setSelectedReviewLeave(l);
                       setReviewDecision("APPROVED");
-                      setReviewRemarks("Approved by HR. Quota locked & attendance synced.");
+                      setReviewRemarks("Approved by HR.");
                       setReviewModalOpen(true);
                     }}
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-all shadow-sm"
+                    className="retro-btn-primary px-3 py-1 text-xs font-bold uppercase flex items-center gap-1"
                   >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Review & Authorize</span>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Authorize</span>
                   </button>
                 </div>
               </div>
@@ -460,38 +398,32 @@ export default function LeavesPage() {
       )}
 
       {/* Leave Application History Table */}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/80 overflow-hidden shadow-xl">
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-white">
-            {isAdmin || isHR ? "Organization Leave Records & Quota Ledger" : "My Leave Application History"}
+      <div className="retro-card overflow-hidden font-mono">
+        <div className="p-3 border-b-2 border-[#151D22] bg-[#FAF7F2] flex items-center justify-between">
+          <h3 className="font-display-lg text-sm font-bold uppercase text-[#151D22]">
+            {isAdmin || isHR ? "Organization Leave Records" : "My Leave History"}
           </h3>
-          <span className="text-xs text-slate-400 font-mono">{leaves.length} total</span>
+          <span className="text-xs font-bold text-[#414942]">{leaves.length} records</span>
         </div>
 
         {loading ? (
-          <TableSkeleton rows={6} />
-        ) : leaves.length === 0 ? (
-          <div className="p-12 text-center text-slate-400 space-y-2">
-            <PlaneTakeoff className="w-8 h-8 mx-auto text-slate-500" />
-            <p className="text-sm font-semibold text-slate-300">No leave requests found</p>
-            <p className="text-xs text-slate-500">Apply for time off when you need away days.</p>
-          </div>
+          <TableSkeleton rows={5} />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-300">
-              <thead className="bg-slate-950/80 border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400">
-                <tr>
-                  {(isAdmin || isHR) && <th className="px-5 py-3.5 font-semibold">Applicant</th>}
-                  <th className="px-5 py-3.5 font-semibold">Category</th>
-                  <th className="px-5 py-3.5 font-semibold">Date Range</th>
-                  <th className="px-5 py-3.5 font-semibold">Business Days</th>
-                  <th className="px-5 py-3.5 font-semibold">Reason Remarks</th>
-                  <th className="px-5 py-3.5 font-semibold">Status</th>
-                  <th className="px-5 py-3.5 font-semibold">Manager Feedback & Decision</th>
-                  <th className="px-5 py-3.5 text-right font-semibold">Action</th>
+            <table className="w-full text-left retro-table border-collapse bg-[#FAF7F2]">
+              <thead>
+                <tr className="font-mono text-xs">
+                  {(isAdmin || isHR) && <th className="p-2.5">Applicant</th>}
+                  <th className="p-2.5">Category</th>
+                  <th className="p-2.5">Date Range</th>
+                  <th className="p-2.5">Days</th>
+                  <th className="p-2.5">Reason</th>
+                  <th className="p-2.5">Status</th>
+                  <th className="p-2.5">Manager Feedback</th>
+                  <th className="p-2.5 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="font-mono text-xs divide-y divide-[#717971]">
                 {leaves.map((l) => {
                   const empProfile = l.user?.profile;
                   const empName = empProfile
@@ -500,57 +432,41 @@ export default function LeavesPage() {
                   const isOwner = l.userId === user?.id;
 
                   return (
-                    <tr key={l.id} className="hover:bg-slate-800/40 transition-colors">
+                    <tr key={l.id} className="hover:bg-[#edf4fd] transition-colors">
                       {(isAdmin || isHR) && (
-                        <td className="px-5 py-3.5">
-                          <span className="font-semibold text-white">{empName}</span>
-                          <span className="block text-[10px] text-slate-400 font-mono">
-                            {empProfile?.employeeId}
-                          </span>
+                        <td className="p-2.5">
+                          <span className="font-bold block">{empName}</span>
+                          <span className="text-[10px] text-[#717971]">{empProfile?.employeeId}</span>
                         </td>
                       )}
-                      <td className="px-5 py-3.5">
-                        <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 font-mono text-[11px]">
+                      <td className="p-2.5">
+                        <span className="px-1.5 py-0.2 bg-[#edf4fd] border border-[#151D22] text-[10px] font-bold">
                           {l.leaveType}
                         </span>
                       </td>
-                      <td className="px-5 py-3.5 font-mono text-slate-200">
+                      <td className="p-2.5 font-bold">
                         {formatDate(l.startDate)} → {formatDate(l.endDate)}
                       </td>
-                      <td className="px-5 py-3.5 font-mono font-bold text-white">{l.daysCount}d</td>
-                      <td className="px-5 py-3.5 max-w-xs truncate italic text-slate-300">
-                        "{l.reason}"
-                      </td>
-                      <td className="px-5 py-3.5">
+                      <td className="p-2.5 font-bold text-[#151D22]">{l.daysCount}d</td>
+                      <td className="p-2.5 max-w-xs truncate italic text-[#414942]">"{l.reason}"</td>
+                      <td className="p-2.5">
                         <Badge variant="status" value={l.status} />
                       </td>
-                      <td className="px-5 py-3.5">
+                      <td className="p-2.5 text-[11px] text-[#414942]">
                         {l.status === "APPROVED" ? (
-                          <div className="flex items-center gap-1.5 text-emerald-400 text-[11px]">
-                            <CheckCheck className="w-3.5 h-3.5" />
-                            <span>
-                              Approved {l.approver?.profile ? `by ${l.approver.profile.firstName}` : ""}
-                            </span>
-                          </div>
+                          <span className="text-[#346645] font-bold">✓ Approved by HR</span>
                         ) : l.status === "REJECTED" ? (
-                          <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[11px] max-w-xs space-y-0.5">
-                            <span className="font-bold block text-rose-400">Feedback:</span>
-                            <p className="italic">"{l.rejectionReason || "Application declined"}"</p>
-                          </div>
+                          <span className="text-[#ba1a1a] font-bold">Declined: {l.rejectionReason}</span>
                         ) : (
-                          <span className="text-amber-400 text-[11px] flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            <span>Under HR Review</span>
-                          </span>
+                          "Under Review"
                         )}
                       </td>
-                      <td className="px-5 py-3.5 text-right">
+                      <td className="p-2.5 text-right">
                         {l.status === "PENDING" && isOwner && (
                           <button
                             disabled={actionLoading === l.id}
                             onClick={() => handleCancelLeave(l.id)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 border border-rose-500/20 text-[11px] font-semibold transition-colors disabled:opacity-50"
-                            title="Withdraw & Restore Balance"
+                            className="retro-btn-danger px-2 py-0.5 text-[10px] font-bold uppercase inline-flex items-center gap-1"
                           >
                             <Trash2 className="w-3 h-3" />
                             <span>Withdraw</span>
@@ -566,131 +482,81 @@ export default function LeavesPage() {
         )}
       </div>
 
-      {/* HR EVALUATION MODAL WITH MANDATORY REMARKS */}
+      {/* REVIEW MODAL */}
       {reviewModalOpen && selectedReviewLeave && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in-50">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div className="flex items-center gap-2">
-                <div
-                  className={`p-2 rounded-xl ${
-                    reviewDecision === "APPROVED"
-                      ? "bg-emerald-500/10 text-emerald-400"
-                      : "bg-rose-500/10 text-rose-400"
-                  }`}
-                >
-                  {reviewDecision === "APPROVED" ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-white">
-                    {reviewDecision === "APPROVED" ? "Authorize Leave Request" : "Decline Leave Request"}
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    {selectedReviewLeave.user?.profile?.firstName} {selectedReviewLeave.user?.profile?.lastName} (
-                    {selectedReviewLeave.user?.profile?.employeeId})
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setReviewModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
-              >
+          <div className="retro-card-static bg-[#FAF7F2] max-w-md w-full p-6 shadow-2xl space-y-4 font-mono text-xs">
+            <div className="flex items-center justify-between pb-3 border-b-2 border-[#151D22]">
+              <h3 className="font-display-lg text-base font-bold uppercase text-[#151D22]">
+                {reviewDecision === "APPROVED" ? "Authorize Leave" : "Decline Leave"}
+              </h3>
+              <button onClick={() => setReviewModalOpen(false)} className="p-1 border border-[#151D22]">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs space-y-1">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Category & Duration:</span>
-                <span className="font-semibold text-white">
-                  {selectedReviewLeave.leaveType} ({selectedReviewLeave.daysCount} Business Days)
-                </span>
+            <form onSubmit={handleReviewSubmit} className="space-y-3">
+              <div className="p-2.5 bg-[#edf4fd] border border-[#151D22] space-y-1">
+                <div>Applicant: <strong>{selectedReviewLeave.user?.profile?.firstName} {selectedReviewLeave.user?.profile?.lastName}</strong></div>
+                <div>Category: <strong>{selectedReviewLeave.leaveType} ({selectedReviewLeave.daysCount} Business Days)</strong></div>
+                <div>Dates: <strong>{formatDate(selectedReviewLeave.startDate)} - {formatDate(selectedReviewLeave.endDate)}</strong></div>
+                <div className="italic">"{selectedReviewLeave.reason}"</div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Date Range:</span>
-                <span className="font-mono text-slate-200">
-                  {formatDate(selectedReviewLeave.startDate)} → {formatDate(selectedReviewLeave.endDate)}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-500 block">Applicant Reason:</span>
-                <p className="italic text-slate-300 mt-0.5">"{selectedReviewLeave.reason}"</p>
-              </div>
-            </div>
 
-            <form onSubmit={handleReviewSubmit} className="space-y-3.5 text-xs">
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Manager Decision</label>
+                <label className="block font-bold mb-1">Decision</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setReviewDecision("APPROVED")}
-                    className={`py-2 px-3 rounded-xl font-bold border transition-all ${
-                      reviewDecision === "APPROVED"
-                        ? "bg-emerald-600 text-white border-emerald-500"
-                        : "bg-slate-950 text-slate-400 border-slate-800"
+                    className={`p-2 border-2 font-bold uppercase ${
+                      reviewDecision === "APPROVED" ? "bg-[#346645] text-white border-[#151D22]" : "bg-[#FAF7F2] border-[#2D3134]"
                     }`}
                   >
-                    Approve & Deduct Quota
+                    Approve
                   </button>
                   <button
                     type="button"
                     onClick={() => setReviewDecision("REJECTED")}
-                    className={`py-2 px-3 rounded-xl font-bold border transition-all ${
-                      reviewDecision === "REJECTED"
-                        ? "bg-rose-600 text-white border-rose-500"
-                        : "bg-slate-950 text-slate-400 border-slate-800"
+                    className={`p-2 border-2 font-bold uppercase ${
+                      reviewDecision === "REJECTED" ? "bg-[#ba1a1a] text-white border-[#151D22]" : "bg-[#FAF7F2] border-[#2D3134]"
                     }`}
                   >
-                    Reject & Restore Hold
+                    Reject
                   </button>
                 </div>
               </div>
 
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">
-                  Manager Remarks & Feedback {reviewDecision === "REJECTED" && <span className="text-rose-400">* (Mandatory)</span>}
+                <label className="block font-bold mb-1">
+                  Remarks {reviewDecision === "REJECTED" && <span className="text-[#ba1a1a]">* (Mandatory)</span>}
                 </label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   required={reviewDecision === "REJECTED"}
                   value={reviewRemarks}
                   onChange={(e) => setReviewRemarks(e.target.value)}
-                  placeholder={
-                    reviewDecision === "APPROVED"
-                      ? "Optional confirmation remarks for the applicant..."
-                      : "Explain the reason for declining this request (e.g. key project sprint, staffing coverage)..."
-                  }
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500"
+                  placeholder={reviewDecision === "APPROVED" ? "Confirmation remarks..." : "Reason for rejection..."}
+                  className="w-full p-2 retro-input"
                 />
               </div>
 
-              {reviewDecision === "APPROVED" && (
-                <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-300 flex items-start gap-2">
-                  <Sparkles className="w-4 h-4 shrink-0 mt-0.5" />
-                  <span>
-                    Attendance Auto-Sync: Working dates will automatically be marked ON_LEAVE in the Attendance Ledger.
-                  </span>
-                </div>
-              )}
-
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <div className="flex justify-end gap-2 pt-2 border-t border-[#151D22]">
                 <button
                   type="button"
                   onClick={() => setReviewModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300"
+                  className="retro-btn-secondary px-3 py-1.5 font-bold uppercase"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={reviewSubmitting}
-                  className={`px-5 py-2 rounded-xl font-semibold flex items-center gap-2 text-white disabled:opacity-50 ${
-                    reviewDecision === "APPROVED" ? "bg-emerald-600 hover:bg-emerald-500" : "bg-rose-600 hover:bg-rose-500"
+                  className={`px-4 py-1.5 font-bold uppercase text-white ${
+                    reviewDecision === "APPROVED" ? "retro-btn-primary" : "retro-btn-danger"
                   }`}
                 >
-                  {reviewSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCheck className="w-4 h-4" />}
-                  <span>Confirm Decision</span>
+                  {reviewSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm"}
                 </button>
               </div>
             </form>
@@ -698,147 +564,129 @@ export default function LeavesPage() {
         </div>
       )}
 
-      {/* APPLY LEAVE MODAL WITH POLICY & BALANCE VALIDATION */}
+      {/* APPLY LEAVE MODAL */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in-50">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div className="retro-card-static bg-[#FAF7F2] max-w-md w-full p-6 shadow-2xl space-y-4 font-mono text-xs max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b-2 border-[#151D22]">
               <div className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
-                  <PlaneTakeoff className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-white">Apply for Time Off</h3>
-                  <p className="text-xs text-slate-400">Automated policy validation & quota calculation</p>
-                </div>
+                <PlaneTakeoff className="w-5 h-5 text-[#346645]" />
+                <h3 className="font-display-lg text-base font-bold uppercase text-[#151D22]">Apply for Time Off</h3>
               </div>
-              <button
-                onClick={() => setModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
-              >
+              <button onClick={() => setModalOpen(false)} className="p-1 border border-[#151D22]">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Error Banner */}
             {formError && (
-              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{formError}</span>
+              <div className="p-2 bg-[#ffdad6] border border-[#ba1a1a] text-[#ba1a1a] font-bold">
+                {formError}
               </div>
             )}
 
-            {/* Warning Banner */}
             {formWarning && !formError && (
-              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 shrink-0" />
-                <span>{formWarning}</span>
+              <div className="p-2 bg-[#ffdeac] border border-[#7b5500] text-[#7b5500] font-bold">
+                {formWarning}
               </div>
             )}
 
-            <form onSubmit={handleApplyLeave} className="space-y-4 text-xs">
+            <form onSubmit={handleApplyLeave} className="space-y-3">
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Leave Policy Category</label>
+                <label className="block font-bold mb-1">Leave Category</label>
                 <select
                   value={newLeave.leaveType}
                   onChange={(e) => setNewLeave({ ...newLeave, leaveType: e.target.value })}
-                  className="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:ring-2 focus:ring-indigo-500 font-medium"
+                  className="w-full p-2 retro-input"
                 >
-                  <option value="PAID">Paid Vacation Leave (Annual Quota: 18 Days)</option>
-                  <option value="SICK">Sick & Medical Absence (Quota: 12 Days)</option>
-                  <option value="CASUAL">Casual / Personal Days (Quota: 7 Days)</option>
-                  <option value="UNPAID">Unpaid Leave of Absence (Loss of Pay)</option>
-                  <option value="MATERNITY">Maternity Leave (Quota: 90 Days)</option>
-                  <option value="PATERNITY">Paternity Leave (Quota: 15 Days)</option>
+                  <option value="PAID">Paid Vacation (Quota: 18 Days)</option>
+                  <option value="SICK">Sick & Medical (Quota: 12 Days)</option>
+                  <option value="CASUAL">Casual / Personal (Quota: 7 Days)</option>
+                  <option value="UNPAID">Unpaid Leave (Loss of Pay)</option>
+                  <option value="MATERNITY">Maternity (Quota: 90 Days)</option>
+                  <option value="PATERNITY">Paternity (Quota: 15 Days)</option>
                 </select>
 
-                {/* Available balance indicator */}
                 {balances[newLeave.leaveType] && (
-                  <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-400">
-                    <span>Remaining Balance:</span>
-                    <span className="font-bold text-emerald-400 font-mono">
+                  <div className="mt-1 flex justify-between text-[10px] text-[#717971]">
+                    <span>Available Balance:</span>
+                    <span className="font-bold text-[#346645]">
                       {balances[newLeave.leaveType].isUnlimited
-                        ? "Unlimited (Loss of Pay)"
-                        : `${balances[newLeave.leaveType].availableDays} Days Available`}
+                        ? "Unlimited (LOP)"
+                        : `${balances[newLeave.leaveType].availableDays} Days`}
                     </span>
                   </div>
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Start Date</label>
+                  <label className="block font-bold mb-1">Start Date</label>
                   <input
                     type="date"
                     required
                     value={newLeave.startDate}
                     onChange={(e) => setNewLeave({ ...newLeave, startDate: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:ring-2 focus:ring-indigo-500 font-mono"
+                    className="w-full p-1.5 retro-input"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">End Date</label>
+                  <label className="block font-bold mb-1">End Date</label>
                   <input
                     type="date"
                     required
                     value={newLeave.endDate}
                     onChange={(e) => setNewLeave({ ...newLeave, endDate: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:ring-2 focus:ring-indigo-500 font-mono"
+                    className="w-full p-1.5 retro-input"
                   />
                 </div>
               </div>
 
-              {/* Dynamic working days calculation pill */}
-              <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 flex items-center justify-between">
-                <span className="text-slate-400">Business Working Days (Mon-Fri):</span>
-                <span className="text-sm font-bold text-indigo-400 font-mono">
-                  {calculatedDays > 0 ? `${calculatedDays} Day(s)` : "—"}
-                </span>
+              <div className="p-2 bg-[#edf4fd] border border-[#151D22] flex justify-between">
+                <span>Working Days (Excluding Weekends):</span>
+                <span className="font-bold text-[#346645]">{calculatedDays} Day(s)</span>
               </div>
 
-              {/* Admin Retroactive Override Checkbox */}
               {(isAdmin || isHR) && (
-                <div className="p-3 bg-indigo-950/20 border border-indigo-500/20 rounded-xl flex items-center gap-2.5">
+                <div className="p-2 bg-[#edf4fd] border border-[#151D22] flex items-center gap-2">
                   <input
                     type="checkbox"
                     id="adminOverride"
                     checked={newLeave.adminOverride}
                     onChange={(e) => setNewLeave({ ...newLeave, adminOverride: e.target.checked })}
-                    className="rounded bg-slate-900 border-slate-700 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                    className="w-4 h-4"
                   />
-                  <label htmlFor="adminOverride" className="text-[11px] text-indigo-300 cursor-pointer">
-                    <strong>Admin Override Flag:</strong> Authorize retroactive / past date selection
+                  <label htmlFor="adminOverride" className="text-[11px] font-bold cursor-pointer">
+                    Admin Override (Authorize retroactive dates)
                   </label>
                 </div>
               )}
 
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Reason Remarks</label>
+                <label className="block font-bold mb-1">Reason Remarks</label>
                 <textarea
                   required
-                  rows={3}
+                  rows={2}
                   value={newLeave.reason}
                   onChange={(e) => setNewLeave({ ...newLeave, reason: e.target.value })}
-                  placeholder="Provide context for manager review (e.g. Travel, doctor visit, personal obligations)..."
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500"
+                  placeholder="Provide context for manager review..."
+                  className="w-full p-2 retro-input"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <div className="flex justify-end gap-2 pt-2 border-t border-[#151D22]">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300"
+                  className="retro-btn-secondary px-3 py-1.5 font-bold uppercase"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting || calculatedDays <= 0 || !!formError}
-                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold flex items-center gap-2 shadow-lg shadow-indigo-600/30 disabled:opacity-50"
+                  className="retro-btn-primary px-4 py-1.5 font-bold uppercase flex items-center gap-1.5"
                 >
-                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                  <span>Submit Leave Application</span>
+                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit Application"}
                 </button>
               </div>
             </form>

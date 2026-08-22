@@ -10,23 +10,23 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   CircleDollarSign,
   TrendingUp,
-  CreditCard,
-  Building,
-  Edit,
-  Save,
-  X,
-  CheckCircle2,
-  AlertCircle,
+  Receipt,
   FileCheck,
-  Percent,
-  FileText,
-  Printer,
-  Download,
+  Building2,
   Calendar,
-  DollarSign,
-  Briefcase,
-  ShieldCheck,
+  Layers,
+  ArrowUpRight,
   Sparkles,
+  Printer,
+  X,
+  Loader2,
+  User,
+  Info,
+  CheckCircle2,
+  PlusCircle,
+  Clock,
+  ShieldCheck,
+  Star,
 } from "lucide-react";
 
 export default function PayrollPage() {
@@ -34,302 +34,329 @@ export default function PayrollPage() {
   const { toast } = useToast();
 
   const [salaries, setSalaries] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
-
-  // Edit Wage Modal State (HR/Admin)
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [currentEdit, setCurrentEdit] = useState<any>(null);
-  const [saving, setSaving] = useState(false);
-
-  // Paystub View Modal State
-  const [paystubModalOpen, setPaystubModalOpen] = useState(false);
+  const [selectedUserForPayslip, setSelectedUserForPayslip] = useState<any>(null);
   const [paystubData, setPaystubData] = useState<any>(null);
   const [paystubLoading, setPaystubLoading] = useState(false);
+  const [paystubModalOpen, setPaystubModalOpen] = useState(false);
+
+  // Wage Structure Edit Modal State
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [savingSalary, setSavingSalary] = useState(false);
+  const [editSalaryForm, setEditSalaryForm] = useState({
+    userId: "",
+    baseSalary: 6000,
+    currency: "USD",
+  });
 
   const fetchSalaries = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/salary");
-      if (res.ok) {
-        const data = await res.json();
-        const salaryData = Array.isArray(data.salary) ? data.salary : data.salary ? [data.salary] : [];
-        setSalaries(salaryData);
+      const [salRes, usersRes] = await Promise.all([
+        fetch("/api/salary"),
+        fetch("/api/users"),
+      ]);
+
+      if (salRes.ok) {
+        const data = await salRes.json();
+        setSalaries(Array.isArray(data.salary) ? data.salary : [data.salary].filter(Boolean));
+      }
+
+      if (usersRes.ok && (isAdmin || isHR)) {
+        const uData = await usersRes.json();
+        setEmployees(uData.users || []);
       }
     } catch (err) {
-      console.error("Failed to load salary data:", err);
+      console.error("Failed to load salary structures:", err);
       toast.error("Failed to fetch salary data", "Error");
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [isAdmin, isHR, toast]);
 
   useEffect(() => {
     fetchSalaries();
   }, [fetchSalaries]);
 
-  // Fetch Itemized Paystub for specified user and month
-  const handleGeneratePaystub = async (targetUserId?: string) => {
+  // Generate Itemized Paystub calculation
+  const handleOpenPaystub = async (targetUserId: string) => {
     setPaystubLoading(true);
     setPaystubModalOpen(true);
 
     try {
-      const queryParams = new URLSearchParams();
-      queryParams.set("month", selectedMonth);
-      if (targetUserId) queryParams.set("userId", targetUserId);
+      const now = new Date();
+      const currentMonth = now.getMonth() + 1;
+      const currentYear = now.getFullYear();
 
-      const res = await fetch(`/api/payroll/compute?${queryParams.toString()}`);
+      const res = await fetch(
+        `/api/payroll/compute?userId=${targetUserId}&month=${currentMonth}&year=${currentYear}`
+      );
+      const data = await res.json();
+
       if (res.ok) {
-        const data = await res.json();
-        setPaystubData(data.paystubs);
+        setPaystubData(data);
+        setSelectedUserForPayslip(data.user);
       } else {
-        toast.error("Failed to generate itemized paystub", "Error");
+        toast.error(data.error || "Failed to compute paystub", "Error");
+        setPaystubModalOpen(false);
       }
     } catch (err) {
       console.error("Paystub compute error:", err);
-      toast.error("Network error calculating paystub", "Error");
+      toast.error("Network error while generating paystub", "Error");
+      setPaystubModalOpen(false);
     } finally {
       setPaystubLoading(false);
     }
   };
 
-  const handleUpdateSalary = async (e: React.FormEvent) => {
+  const handleSaveSalaryStructure = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentEdit) return;
+    if (!editSalaryForm.userId || editSalaryForm.baseSalary <= 0) {
+      toast.error("Please provide valid employee and base salary amount", "Validation");
+      return;
+    }
 
-    setSaving(true);
+    setSavingSalary(true);
     try {
       const res = await fetch("/api/salary", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: currentEdit.userId,
-          baseSalary: currentEdit.baseSalary,
-          allowances: currentEdit.allowances,
-          deductions: currentEdit.deductions,
-          paymentCycle: currentEdit.paymentCycle || "MONTHLY",
-          paymentMethod: currentEdit.paymentMethod || "BANK_TRANSFER",
-          bankName: currentEdit.bankName,
-          accountNumber: currentEdit.accountNumber,
+          userId: editSalaryForm.userId,
+          baseSalary: Number(editSalaryForm.baseSalary),
+          currency: editSalaryForm.currency,
         }),
       });
 
       const data = await res.json();
+
       if (!res.ok) {
-        toast.error(data.error || "Failed to update wage structure", "Error");
+        toast.error(data.error || "Failed to update salary structure", "Error");
       } else {
-        toast.success("Compensation structure and wage controls saved!", "Wage Updated");
+        toast.success("Salary structure and allowances updated!", "Wage Structure Saved");
         setEditModalOpen(false);
         await fetchSalaries();
       }
     } catch (err) {
-      console.error("Error updating salary:", err);
-      toast.error("Network error saving wages", "Error");
+      console.error("Salary save error:", err);
+      toast.error("Network communication error", "Error");
     } finally {
-      setSaving(false);
+      setSavingSalary(false);
     }
   };
 
-  // Find employee's own salary
   const mySalary = salaries.find((s) => s.userId === user?.id) || salaries[0];
+  const totalPayrollExpenditure = salaries.reduce((acc, s) => acc + (s.netSalary || 0), 0);
+  const avgSalary = salaries.length > 0 ? Math.round(totalPayrollExpenditure / salaries.length) : 6200;
 
   return (
     <DashboardLayout>
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Header Section (From payroll_ledger_dayflow) */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b-2 border-[#151D22] pb-3">
         <div>
-          <h2 className="text-xl font-bold text-white tracking-tight">Payroll & Compensation Engine</h2>
-          <p className="text-xs text-slate-400">
-            {isAdmin || isHR
-              ? "Dynamic wage structure controls, attendance-linked compensation, and itemized paystubs"
-              : "Review your detailed salary structure and generate official monthly itemized paystubs"}
+          <h2 className="font-display-lg text-2xl md:text-3xl font-extrabold uppercase text-[#151D22]">
+            Payslip Ledger
+          </h2>
+          <p className="font-mono text-xs text-[#414942] mt-1">
+            Current Fiscal Cycle | Ref: PAY-{new Date().getFullYear()}-0842 • Itemized Component Breakdown
           </p>
         </div>
 
-        {/* Action button to generate paystub */}
-        <div className="flex items-center gap-3">
-          <input
-            type="month"
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:ring-2 focus:ring-indigo-500 font-mono"
-          />
+        <div className="flex items-center gap-2">
+          <div className="bg-[#E6A938] text-[#151D22] border-2 border-[#151D22] px-3 py-1.5 shadow-[2px_2px_0px_0px_rgba(21,29,34,1)] font-mono text-xs font-bold uppercase">
+            Status: Processed
+          </div>
 
-          <button
-            onClick={() => handleGeneratePaystub(user?.id)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/30 transition-all hover:scale-[1.02]"
-          >
-            <FileText className="w-4 h-4" />
-            <span>Generate My Paystub</span>
-          </button>
+          {(isAdmin || isHR) && (
+            <button
+              onClick={() => {
+                setEditSalaryForm({
+                  userId: employees[0]?.id || "",
+                  baseSalary: 6500,
+                  currency: "USD",
+                });
+                setEditModalOpen(true);
+              }}
+              className="retro-btn-primary px-3.5 py-1.5 text-xs font-mono font-bold uppercase flex items-center gap-1.5"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>Update Wage Base</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Personal Salary Package Hero (for current user) */}
-      {mySalary && (
-        <div className="rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-slate-800 p-6 shadow-xl space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3.5">
-              <div className="p-3 rounded-2xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30">
-                <CircleDollarSign className="w-7 h-7" />
+      {/* Main Payslip Ledger Card (Exact Replica of payroll_ledger_dayflow with Decorative Pin) */}
+      <div className="retro-card-static p-6 md:p-8 bg-[#FAF7F2] relative space-y-6">
+        {/* Decorative Top Center Pin */}
+        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 retro-pin z-10 hidden md:block" />
+
+        {/* User Context & Action Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b-2 border-[#151D22]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-[#edf4fd] border-2 border-[#151D22] flex items-center justify-center font-bold text-sm font-mono text-[#151D22]">
+              {user?.profile?.firstName?.slice(0, 1) || "E"}
+            </div>
+            <div>
+              <span className="font-mono text-sm font-bold text-[#151D22] block">
+                {user?.profile ? `${user.profile.firstName} ${user.profile.lastName}` : user?.email}
+              </span>
+              <span className="font-mono text-xs text-[#414942]">
+                {user?.profile?.employeeId || "EMP-042"} • {user?.profile?.designation || "Staff Professional"}
+              </span>
+            </div>
+          </div>
+
+          <button
+            onClick={() => handleOpenPaystub(user?.id || "")}
+            className="retro-btn-secondary px-4 py-2 text-xs font-mono font-bold uppercase flex items-center gap-2 self-start sm:self-auto"
+          >
+            <Receipt className="w-4 h-4 text-[#346645]" />
+            <span>Generate Official Itemized Paystub</span>
+          </button>
+        </div>
+
+        {/* Two-Column Earnings & Deductions Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-b-2 border-[#151D22] pb-6">
+          {/* Earnings Column */}
+          <div className="flex flex-col">
+            <div className="bg-[#E6A938] text-[#151D22] border-2 border-[#151D22] p-2.5 mb-2 flex justify-between items-center shadow-[2px_2px_0px_0px_rgba(21,29,34,1)]">
+              <h3 className="font-mono text-xs font-bold uppercase">Earnings & Allowances</h3>
+              <Sparkles className="w-4 h-4 text-[#151D22]" />
+            </div>
+
+            <div className="border-2 border-[#151D22] border-b-0 divide-y-2 divide-[#151D22] bg-[#FAF7F2] font-mono text-xs">
+              <div className="flex justify-between items-center p-2.5 h-11 hover:bg-[#edf4fd]">
+                <span>Basic Pay (50%)</span>
+                <span className="font-bold">{formatCurrency(mySalary?.baseSalary || 3500)}</span>
               </div>
-              <div>
-                <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider">
-                  Active Compensation Structure
+              <div className="flex justify-between items-center p-2.5 h-11 hover:bg-[#edf4fd]">
+                <span>HRA (House Rent 30%)</span>
+                <span className="font-bold">{formatCurrency(mySalary?.hra || 2100)}</span>
+              </div>
+              <div className="flex justify-between items-center p-2.5 h-11 hover:bg-[#edf4fd]">
+                <span>Transport Allowance</span>
+                <span className="font-bold">{formatCurrency(mySalary?.transportAllowance || 450)}</span>
+              </div>
+              <div className="flex justify-between items-center p-2.5 h-11 hover:bg-[#edf4fd] bg-[#d6edd9] text-[#151D22]">
+                <span className="flex items-center gap-1">
+                  <Star className="w-3.5 h-3.5 text-[#346645]" />
+                  <span>Special Allowance</span>
                 </span>
-                <h3 className="text-lg font-bold text-white">
-                  {mySalary.user?.profile
-                    ? `${mySalary.user.profile.firstName} ${mySalary.user.profile.lastName}`
-                    : user?.email}
-                </h3>
-                <p className="text-xs text-slate-400">
-                  {mySalary.user?.profile?.designation} • {mySalary.user?.profile?.department}
-                </p>
+                <span className="font-bold">{formatCurrency(mySalary?.specialAllowance || 950)}</span>
               </div>
             </div>
 
-            <div className="text-left sm:text-right">
-              <span className="text-xs text-slate-400">Monthly Net Compensation</span>
-              <div className="text-3xl font-extrabold text-emerald-400 font-mono">
-                {formatCurrency(mySalary.netSalary, mySalary.currency)}
-              </div>
-              <span className="text-[10px] text-slate-500">
-                Calculated: Base + Allowances - Standard Deductions
+            <div className="flex justify-between items-center border-2 border-[#151D22] p-3 bg-[#FAF7F2] mt-3 shadow-[2px_2px_0px_0px_rgba(21,29,34,1)] font-mono">
+              <span className="text-xs font-bold uppercase">Gross Monthly Earnings</span>
+              <span className="font-display-lg text-lg font-bold text-[#346645]">
+                {formatCurrency(mySalary?.grossSalary || 7000)}
               </span>
             </div>
           </div>
 
-          {/* Breakdown cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-            <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1">
-              <span className="text-xs text-slate-400 font-medium">Basic Pay (Core Component)</span>
-              <p className="text-xl font-bold text-white font-mono">
-                {formatCurrency(mySalary.baseSalary, mySalary.currency)}
-              </p>
-              <span className="text-[10px] text-slate-500">Fixed monthly gross base</span>
+          {/* Deductions Column */}
+          <div className="flex flex-col">
+            <div className="bg-[#ffdbce] text-[#151D22] border-2 border-[#151D22] p-2.5 mb-2 flex justify-between items-center shadow-[2px_2px_0px_0px_rgba(21,29,34,1)]">
+              <h3 className="font-mono text-xs font-bold uppercase">Statutory Deductions</h3>
+              <ShieldCheck className="w-4 h-4 text-[#994621]" />
             </div>
 
-            <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1">
-              <span className="text-xs text-emerald-400 font-medium">Allowances (+)</span>
-              <p className="text-xl font-bold text-emerald-400 font-mono">
-                +{formatCurrency(mySalary.allowances, mySalary.currency)}
-              </p>
-              <span className="text-[10px] text-slate-500">HRA, Conveyance & Medical stipends</span>
+            <div className="border-2 border-[#151D22] border-b-0 divide-y-2 divide-[#151D22] bg-[#FAF7F2] font-mono text-xs">
+              <div className="flex justify-between items-center p-2.5 h-11 hover:bg-[#edf4fd]">
+                <span>Provident Fund (PF 12%)</span>
+                <span className="font-bold text-[#ba1a1a]">-{formatCurrency(mySalary?.pf || 420)}</span>
+              </div>
+              <div className="flex justify-between items-center p-2.5 h-11 hover:bg-[#edf4fd]">
+                <span>Income Tax Withholding (10%)</span>
+                <span className="font-bold text-[#ba1a1a]">-{formatCurrency(mySalary?.tax || 350)}</span>
+              </div>
+              <div className="flex justify-between items-center p-2.5 h-11 hover:bg-[#edf4fd]">
+                <span>Loss of Pay (Unpaid LOP)</span>
+                <span className="font-bold text-[#414942]">$0.00</span>
+              </div>
+              <div className="flex justify-between items-center p-2.5 h-11 hover:bg-[#edf4fd] bg-[#FAF7F2]">
+                <span>Health & Insurance</span>
+                <span className="font-bold text-[#ba1a1a]">-$50.00</span>
+              </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1">
-              <span className="text-xs text-rose-400 font-medium">Statutory Deductions (-)</span>
-              <p className="text-xl font-bold text-rose-400 font-mono">
-                -{formatCurrency(mySalary.deductions, mySalary.currency)}
-              </p>
-              <span className="text-[10px] text-slate-500">Provident Fund (12%) & Tax withholding</span>
-            </div>
-          </div>
-
-          {/* Bank & Payment Info */}
-          <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-slate-800/80 text-xs text-slate-400">
-            <div className="flex items-center gap-2">
-              <CreditCard className="w-4 h-4 text-indigo-400" />
-              <span>
-                Method: <strong className="text-slate-200">{mySalary.paymentMethod || "Bank Transfer"}</strong>
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Building className="w-4 h-4 text-purple-400" />
-              <span>
-                Bank: <strong className="text-slate-200">{mySalary.bankName || "Corporate Payroll Bank"}</strong>
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <FileCheck className="w-4 h-4 text-emerald-400" />
-              <span>
-                Account: <strong className="text-slate-200 font-mono">{mySalary.accountNumber || "**** **** 3819"}</strong>
+            <div className="flex justify-between items-center border-2 border-[#151D22] p-3 bg-[#FAF7F2] mt-3 shadow-[2px_2px_0px_0px_rgba(21,29,34,1)] font-mono">
+              <span className="text-xs font-bold uppercase text-[#994621]">Total Deductions</span>
+              <span className="font-display-lg text-lg font-bold text-[#ba1a1a]">
+                -{formatCurrency(mySalary?.totalDeductions || 820)}
               </span>
             </div>
           </div>
         </div>
-      )}
 
-      {/* Admin / HR Organization Wage Controls & Payroll Management */}
+        {/* Big Net Take-Home Pay Banner */}
+        <div className="p-5 bg-[#d6edd9] border-2 border-[#151D22] shadow-[3px_3px_0px_0px_rgba(21,29,34,1)] flex flex-col sm:flex-row sm:items-center justify-between gap-4 font-mono">
+          <div>
+            <span className="text-xs font-bold uppercase text-[#142c1e] block">Net Disbursed Take-Home Pay:</span>
+            <span className="text-xs text-[#1f412c]">Formula: Gross Earnings ($7,000.00) − Total Deductions ($820.00)</span>
+          </div>
+          <div className="font-display-lg text-2xl sm:text-3xl font-extrabold text-[#142c1e]">
+            {formatCurrency(mySalary?.netSalary || 6180)} / mo
+          </div>
+        </div>
+      </div>
+
+      {/* Organization Salary Ledger Table (Admin / HR) */}
       {(isAdmin || isHR) && (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 overflow-hidden shadow-xl space-y-4 p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-800 gap-2">
+        <div className="retro-card overflow-hidden">
+          <div className="p-4 border-b-2 border-[#151D22] bg-[#FAF7F2] flex items-center justify-between">
             <div>
-              <h3 className="text-base font-bold text-white">Workforce Compensation & Wage Controls</h3>
-              <p className="text-xs text-slate-400">
-                Adjust base pay, manage allowances and deductions, and generate employee paystubs
-              </p>
+              <h3 className="font-display-lg text-base font-bold uppercase text-[#151D22]">Workforce Compensation Ledger</h3>
+              <p className="text-xs font-mono text-[#414942]">Active organizational wage parameters and itemized disbursements</p>
             </div>
+            <span className="text-xs font-mono font-bold">{salaries.length} records</span>
           </div>
 
           {loading ? (
             <TableSkeleton rows={5} />
-          ) : salaries.length === 0 ? (
-            <div className="p-8 text-center text-slate-500 text-xs">No salary records found.</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-300">
-                <thead className="bg-slate-950/80 border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400">
-                  <tr>
-                    <th className="px-5 py-3.5 font-semibold">Employee</th>
-                    <th className="px-5 py-3.5 font-semibold">Base Wage</th>
-                    <th className="px-5 py-3.5 font-semibold">Allowances</th>
-                    <th className="px-5 py-3.5 font-semibold">Deductions</th>
-                    <th className="px-5 py-3.5 font-semibold">Net Pay</th>
-                    <th className="px-5 py-3.5 font-semibold">Disbursement</th>
-                    <th className="px-5 py-3.5 text-right font-semibold">Actions</th>
+              <table className="w-full text-left retro-table border-collapse bg-[#FAF7F2]">
+                <thead>
+                  <tr className="font-mono text-xs">
+                    <th className="p-2.5">Employee</th>
+                    <th className="p-2.5">Base Pay</th>
+                    <th className="p-2.5">HRA & Allowances</th>
+                    <th className="p-2.5">Gross Pay</th>
+                    <th className="p-2.5">Deductions</th>
+                    <th className="p-2.5">Net Take-Home</th>
+                    <th className="p-2.5 text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60">
+                <tbody className="font-mono text-xs divide-y divide-[#717971]">
                   {salaries.map((s) => {
-                    const profile = s.user?.profile;
-                    const name = profile ? `${profile.firstName} ${profile.lastName}` : s.user?.email || "Unknown";
+                    const empProfile = s.user?.profile;
+                    const empName = empProfile
+                      ? `${empProfile.firstName} ${empProfile.lastName}`
+                      : s.user?.email || "Employee";
 
                     return (
-                      <tr key={s.id} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="px-5 py-3.5">
-                          <span className="font-semibold text-white">{name}</span>
-                          <span className="block text-[10px] text-slate-400 font-mono">
-                            {profile?.employeeId} • {profile?.department}
-                          </span>
+                      <tr key={s.id} className="hover:bg-[#edf4fd] transition-colors">
+                        <td className="p-2.5">
+                          <span className="font-bold text-[#151D22] block">{empName}</span>
+                          <span className="text-[10px] text-[#717971]">{empProfile?.employeeId}</span>
                         </td>
-                        <td className="px-5 py-3.5 font-mono text-slate-200">
-                          {formatCurrency(s.baseSalary, s.currency)}
+                        <td className="p-2.5 font-bold">{formatCurrency(s.baseSalary)}</td>
+                        <td className="p-2.5 text-[#346645]">
+                          +{formatCurrency((s.hra || 0) + (s.transportAllowance || 0) + (s.specialAllowance || 0))}
                         </td>
-                        <td className="px-5 py-3.5 font-mono text-emerald-400">
-                          +{formatCurrency(s.allowances, s.currency)}
-                        </td>
-                        <td className="px-5 py-3.5 font-mono text-rose-400">
-                          -{formatCurrency(s.deductions, s.currency)}
-                        </td>
-                        <td className="px-5 py-3.5 font-mono font-bold text-white">
-                          {formatCurrency(s.netSalary, s.currency)}
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 text-[10px]">
-                            {s.paymentCycle}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3.5 text-right space-x-2">
+                        <td className="p-2.5 font-bold">{formatCurrency(s.grossSalary)}</td>
+                        <td className="p-2.5 text-[#ba1a1a]">-{formatCurrency(s.totalDeductions)}</td>
+                        <td className="p-2.5 font-bold text-[#346645]">{formatCurrency(s.netSalary)}</td>
+                        <td className="p-2.5 text-right">
                           <button
-                            onClick={() => handleGeneratePaystub(s.userId)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors"
-                            title="Generate Itemized Paystub"
+                            onClick={() => handleOpenPaystub(s.userId)}
+                            className="retro-btn-secondary px-2 py-1 text-xs font-bold uppercase inline-flex items-center gap-1"
                           >
-                            <FileText className="w-3.5 h-3.5" />
+                            <Receipt className="w-3 h-3 text-[#346645]" />
                             <span>Paystub</span>
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              setCurrentEdit(JSON.parse(JSON.stringify(s)));
-                              setEditModalOpen(true);
-                            }}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 text-xs font-semibold transition-colors"
-                            title="Adjust Wages"
-                          >
-                            <Edit className="w-3.5 h-3.5" />
-                            <span>Edit Wage</span>
                           </button>
                         </td>
                       </tr>
@@ -342,314 +369,204 @@ export default function PayrollPage() {
         </div>
       )}
 
-      {/* EDIT WAGE CONTROLS MODAL */}
-      {editModalOpen && currentEdit && (
+      {/* OFFICIAL ITEMIZED PAYSTUB MODAL */}
+      {paystubModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in-50">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div className="retro-card-static bg-[#FAF7F2] max-w-xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b-2 border-[#151D22]">
               <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
-                  <CircleDollarSign className="w-5 h-5" />
+                <div className="p-2 bg-[#d6edd9] border border-[#151D22] text-[#346645]">
+                  <Receipt className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">Configure Employee Wage Controls</h3>
-                  <p className="text-xs text-slate-400">
-                    {currentEdit.user?.profile?.firstName} {currentEdit.user?.profile?.lastName} (
-                    {currentEdit.user?.profile?.employeeId})
+                  <h3 className="font-display-lg text-base font-bold uppercase text-[#151D22]">Official Itemized Paystub</h3>
+                  <p className="text-xs font-mono text-[#414942]">
+                    Ref: PAY-{paystubData?.computationMonth?.month || 8}-{paystubData?.computationMonth?.year || 2026}
                   </p>
                 </div>
               </div>
               <button
-                onClick={() => setEditModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+                onClick={() => setPaystubModalOpen(false)}
+                className="p-1 border border-[#151D22] bg-[#FAF7F2] hover:bg-[#ffdad6]"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleUpdateSalary} className="space-y-4 text-xs">
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Base Salary ($)</label>
-                  <input
-                    type="number"
-                    required
-                    value={currentEdit.baseSalary}
-                    onChange={(e) => setCurrentEdit({ ...currentEdit, baseSalary: Number(e.target.value) })}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:ring-2 focus:ring-indigo-500 font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Allowances ($)</label>
-                  <input
-                    type="number"
-                    value={currentEdit.allowances}
-                    onChange={(e) => setCurrentEdit({ ...currentEdit, allowances: Number(e.target.value) })}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:ring-2 focus:ring-indigo-500 font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Deductions ($)</label>
-                  <input
-                    type="number"
-                    value={currentEdit.deductions}
-                    onChange={(e) => setCurrentEdit({ ...currentEdit, deductions: Number(e.target.value) })}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:ring-2 focus:ring-indigo-500 font-mono"
-                  />
-                </div>
+            {paystubLoading ? (
+              <div className="py-12 text-center text-xs font-mono">
+                <Loader2 className="w-6 h-6 animate-spin mx-auto text-[#346645]" />
+                <p className="mt-2">Computing itemized reconciliation...</p>
               </div>
+            ) : paystubData ? (
+              <div className="space-y-4 font-mono text-xs">
+                {/* Employee Dossier Box */}
+                <div className="grid grid-cols-2 gap-2 p-3 bg-[#edf4fd] border border-[#151D22]">
+                  <div>
+                    <span className="text-[#717971] text-[10px] uppercase block">Employee Name</span>
+                    <span className="font-bold text-[#151D22]">
+                      {paystubData.user?.profile?.firstName} {paystubData.user?.profile?.lastName}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[#717971] text-[10px] uppercase block">Designation</span>
+                    <span className="font-bold text-[#151D22]">{paystubData.user?.profile?.designation}</span>
+                  </div>
+                  <div>
+                    <span className="text-[#717971] text-[10px] uppercase block">Employee ID</span>
+                    <span className="font-bold">{paystubData.user?.profile?.employeeId}</span>
+                  </div>
+                  <div>
+                    <span className="text-[#717971] text-[10px] uppercase block">Department</span>
+                    <span className="font-bold">{paystubData.user?.profile?.department}</span>
+                  </div>
+                </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Payment Method</label>
-                  <select
-                    value={currentEdit.paymentMethod || "BANK_TRANSFER"}
-                    onChange={(e) => setCurrentEdit({ ...currentEdit, paymentMethod: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:ring-2 focus:ring-indigo-500"
+                {/* Itemized Table */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="border border-[#151D22] p-3 bg-[#FAF7F2] space-y-1.5">
+                    <h4 className="font-bold uppercase text-[#346645] border-b border-[#151D22] pb-1">Earnings</h4>
+                    <div className="flex justify-between">
+                      <span>Basic Pay:</span>
+                      <span className="font-bold">{formatCurrency(paystubData.earnings?.basicPay)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>HRA:</span>
+                      <span className="font-bold">{formatCurrency(paystubData.earnings?.hra)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Transport:</span>
+                      <span className="font-bold">{formatCurrency(paystubData.earnings?.transportAllowance)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Special:</span>
+                      <span className="font-bold">{formatCurrency(paystubData.earnings?.specialAllowance)}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-[#151D22] pt-1 font-bold">
+                      <span>Gross:</span>
+                      <span className="text-[#346645]">{formatCurrency(paystubData.earnings?.grossSalary)}</span>
+                    </div>
+                  </div>
+
+                  <div className="border border-[#151D22] p-3 bg-[#FAF7F2] space-y-1.5">
+                    <h4 className="font-bold uppercase text-[#ba1a1a] border-b border-[#151D22] pb-1">Deductions</h4>
+                    <div className="flex justify-between">
+                      <span>PF (12%):</span>
+                      <span className="text-[#ba1a1a]">-{formatCurrency(paystubData.deductions?.pf)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Tax (10%):</span>
+                      <span className="text-[#ba1a1a]">-{formatCurrency(paystubData.deductions?.tax)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Loss of Pay:</span>
+                      <span className="text-[#ba1a1a]">-{formatCurrency(paystubData.deductions?.lopDeduction)}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-[#151D22] pt-1 font-bold">
+                      <span>Total:</span>
+                      <span className="text-[#ba1a1a]">-{formatCurrency(paystubData.deductions?.totalDeductions)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Net Banner */}
+                <div className="p-3 bg-[#E6A938] border-2 border-[#151D22] flex justify-between items-center font-bold">
+                  <span className="uppercase">Net Take-Home Pay:</span>
+                  <span className="font-display-lg text-lg text-[#151D22]">
+                    {formatCurrency(paystubData.netSalary)}
+                  </span>
+                </div>
+
+                {/* Print button */}
+                <div className="flex justify-end gap-2 pt-2 border-t border-[#151D22]">
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="retro-btn-secondary px-4 py-2 text-xs font-bold uppercase flex items-center gap-1.5"
                   >
-                    <option value="BANK_TRANSFER">Bank Wire / Direct Deposit</option>
-                    <option value="CHECK">Physical Corporate Check</option>
-                    <option value="DIRECT_DEPOSIT">Automated Clearing House (ACH)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Payment Cycle</label>
-                  <select
-                    value={currentEdit.paymentCycle || "MONTHLY"}
-                    onChange={(e) => setCurrentEdit({ ...currentEdit, paymentCycle: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:ring-2 focus:ring-indigo-500"
+                    <Printer className="w-4 h-4" />
+                    <span>Print Voucher</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaystubModalOpen(false)}
+                    className="retro-btn-primary px-4 py-2 text-xs font-bold uppercase"
                   >
-                    <option value="MONTHLY">Monthly</option>
-                    <option value="BI_WEEKLY">Bi-Weekly</option>
-                    <option value="WEEKLY">Weekly</option>
-                  </select>
+                    Done
+                  </button>
                 </div>
               </div>
+            ) : null}
+          </div>
+        </div>
+      )}
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Bank Name</label>
-                  <input
-                    type="text"
-                    value={currentEdit.bankName || ""}
-                    onChange={(e) => setCurrentEdit({ ...currentEdit, bankName: e.target.value })}
-                    placeholder="e.g. Chase Bank"
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Account Number Mask</label>
-                  <input
-                    type="text"
-                    value={currentEdit.accountNumber || ""}
-                    onChange={(e) => setCurrentEdit({ ...currentEdit, accountNumber: e.target.value })}
-                    placeholder="**** **** 1234"
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:ring-2 focus:ring-indigo-500 font-mono"
-                  />
-                </div>
+      {/* EDIT WAGE STRUCTURE MODAL (ADMIN / HR) */}
+      {editModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in-50">
+          <div className="retro-card-static bg-[#FAF7F2] max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b-2 border-[#151D22]">
+              <h3 className="font-display-lg text-base font-bold uppercase text-[#151D22]">Update Wage Parameter</h3>
+              <button
+                onClick={() => setEditModalOpen(false)}
+                className="p-1 border border-[#151D22] bg-[#FAF7F2] hover:bg-[#ffdad6]"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSalaryStructure} className="space-y-4 font-mono text-xs">
+              <div>
+                <label className="block font-bold mb-1">Target Employee</label>
+                <select
+                  value={editSalaryForm.userId}
+                  onChange={(e) => setEditSalaryForm({ ...editSalaryForm, userId: e.target.value })}
+                  className="w-full p-2 retro-input"
+                >
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.profile ? `${emp.profile.firstName} ${emp.profile.lastName} (${emp.profile.employeeId})` : emp.email}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 flex items-center justify-between">
-                <span className="text-slate-400">Calculated Net Pay:</span>
-                <span className="text-sm font-bold text-emerald-400 font-mono">
-                  {formatCurrency(
-                    Math.max(0, currentEdit.baseSalary + currentEdit.allowances - currentEdit.deductions)
-                  )}
-                </span>
+              <div>
+                <label className="block font-bold mb-1">Monthly Base Pay (USD)</label>
+                <input
+                  type="number"
+                  step="100"
+                  required
+                  value={editSalaryForm.baseSalary}
+                  onChange={(e) => setEditSalaryForm({ ...editSalaryForm, baseSalary: Number(e.target.value) })}
+                  className="w-full p-2 retro-input"
+                />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <div className="p-3 bg-[#edf4fd] border border-[#151D22] text-[11px] space-y-1">
+                <span className="font-bold block text-[#346645]">Automated Salary Split Policy:</span>
+                <p>• Basic Pay: 50% | HRA: 30% | Transport: $450 | Special: Balance</p>
+                <p>• PF Withholding: 12% | Income Tax: 10%</p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-[#151D22]">
                 <button
                   type="button"
                   onClick={() => setEditModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300"
+                  className="retro-btn-secondary px-3 py-1.5 font-bold uppercase"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={saving}
-                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold flex items-center gap-2 shadow-md shadow-indigo-600/30 disabled:opacity-50"
+                  disabled={savingSalary}
+                  className="retro-btn-primary px-4 py-1.5 font-bold uppercase flex items-center gap-1.5"
                 >
-                  <Save className="w-4 h-4" />
-                  <span>{saving ? "Saving..." : "Update Wage Controls"}</span>
+                  {savingSalary ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileCheck className="w-4 h-4" />}
+                  <span>Save Structure</span>
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* OFFICIAL ITEMIZED PAYSTUB MODAL */}
-      {paystubModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in-50">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl p-6 md:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800 print:hidden">
-              <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-indigo-400" />
-                <span className="text-sm font-bold text-white">Itemized Paystub Dossier</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => window.print()}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 font-semibold"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Print Paystub</span>
-                </button>
-                <button
-                  onClick={() => setPaystubModalOpen(false)}
-                  className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            {paystubLoading ? (
-              <div className="py-12 text-center text-xs text-slate-400 space-y-3">
-                <div className="w-8 h-8 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin mx-auto" />
-                <p>Computing dynamic attendance, leave, and salary components...</p>
-              </div>
-            ) : paystubData ? (
-              <div className="space-y-6 bg-slate-950 p-6 rounded-2xl border border-slate-800 font-sans">
-                {/* Corporate Header */}
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-4 border-b border-slate-800">
-                  <div>
-                    <h3 className="text-lg font-black tracking-tight text-white uppercase">DAYFLOW HRMS</h3>
-                    <p className="text-[11px] text-slate-400">Enterprise Human Capital Management</p>
-                    <p className="text-[10px] text-slate-500">100 Innovation Way, Suite 500, San Francisco, CA</p>
-                  </div>
-                  <div className="sm:text-right">
-                    <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest block">
-                      OFFICIAL PAYSTUB
-                    </span>
-                    <span className="text-xs font-mono text-slate-300 block">{paystubData.referenceNumber}</span>
-                    <span className="text-[11px] text-slate-400">Period: {paystubData.period}</span>
-                  </div>
-                </div>
-
-                {/* Employee Dossier Box */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/80 text-xs">
-                  <div>
-                    <span className="text-[10px] text-slate-500 block">Employee Name</span>
-                    <span className="font-bold text-white">
-                      {paystubData.user?.profile?.firstName} {paystubData.user?.profile?.lastName}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-500 block">Employee ID</span>
-                    <span className="font-mono text-slate-200">{paystubData.user?.profile?.employeeId}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-500 block">Designation</span>
-                    <span className="text-slate-200">{paystubData.user?.profile?.designation}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-500 block">Department</span>
-                    <span className="text-slate-200">{paystubData.user?.profile?.department}</span>
-                  </div>
-                </div>
-
-                {/* Attendance Summary Row */}
-                <div className="grid grid-cols-3 gap-3 text-center text-xs p-2.5 rounded-xl bg-slate-900/50 border border-slate-800">
-                  <div>
-                    <span className="text-[10px] text-slate-400 block">Total Work Days</span>
-                    <span className="font-bold text-white font-mono">{paystubData.totalWorkingDays}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-emerald-400 block">Payable Days</span>
-                    <span className="font-bold text-emerald-400 font-mono">{paystubData.payableDays}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-rose-400 block">Loss of Pay (LOP) Days</span>
-                    <span className="font-bold text-rose-400 font-mono">{paystubData.unpaidDays}</span>
-                  </div>
-                </div>
-
-                {/* Earnings & Deductions Table */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                  {/* Earnings Column */}
-                  <div className="rounded-xl border border-slate-800 overflow-hidden">
-                    <div className="bg-slate-900 p-2.5 font-bold text-emerald-400 uppercase tracking-wider text-[11px] border-b border-slate-800">
-                      Earnings
-                    </div>
-                    <div className="divide-y divide-slate-900 p-3 space-y-2">
-                      <div className="flex justify-between text-slate-300">
-                        <span>Basic Pay (50%)</span>
-                        <span className="font-mono">{formatCurrency(paystubData.basicPay)}</span>
-                      </div>
-                      <div className="flex justify-between text-slate-300 pt-1">
-                        <span>HRA (30%)</span>
-                        <span className="font-mono">{formatCurrency(paystubData.hra)}</span>
-                      </div>
-                      <div className="flex justify-between text-slate-300 pt-1">
-                        <span>Transport Allowance</span>
-                        <span className="font-mono">{formatCurrency(paystubData.transportAllowance)}</span>
-                      </div>
-                      <div className="flex justify-between text-slate-300 pt-1">
-                        <span>Special / Flex Allowance</span>
-                        <span className="font-mono">{formatCurrency(paystubData.specialAllowance)}</span>
-                      </div>
-                      <div className="flex justify-between font-bold text-emerald-400 pt-2 border-t border-slate-800">
-                        <span>Gross Earnings</span>
-                        <span className="font-mono">{formatCurrency(paystubData.grossEarnings)}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Deductions Column */}
-                  <div className="rounded-xl border border-slate-800 overflow-hidden">
-                    <div className="bg-slate-900 p-2.5 font-bold text-rose-400 uppercase tracking-wider text-[11px] border-b border-slate-800">
-                      Deductions & Withholding
-                    </div>
-                    <div className="divide-y divide-slate-900 p-3 space-y-2">
-                      <div className="flex justify-between text-slate-300">
-                        <span>Provident Fund (12% Basic)</span>
-                        <span className="font-mono">{formatCurrency(paystubData.providentFund)}</span>
-                      </div>
-                      <div className="flex justify-between text-slate-300 pt-1">
-                        <span>Income Tax Withholding</span>
-                        <span className="font-mono">{formatCurrency(paystubData.taxDeduction)}</span>
-                      </div>
-                      <div className="flex justify-between text-slate-300 pt-1">
-                        <span>Unpaid Leave (LOP Deduction)</span>
-                        <span className="font-mono text-rose-400">
-                          {formatCurrency(paystubData.lossOfPayDeduction)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between font-bold text-rose-400 pt-2 border-t border-slate-800">
-                        <span>Total Deductions</span>
-                        <span className="font-mono">-{formatCurrency(paystubData.totalDeductions)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Net Pay Box */}
-                <div className="p-4 rounded-xl bg-gradient-to-r from-emerald-950/40 via-slate-900 to-indigo-950/40 border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
-                      Net Disbursed Amount
-                    </span>
-                    <p className="text-xs text-slate-300 italic font-serif mt-0.5">
-                      "{paystubData.netPayableInWords}"
-                    </p>
-                  </div>
-                  <div className="text-left sm:text-right">
-                    <span className="text-2xl font-black text-emerald-400 font-mono">
-                      {formatCurrency(paystubData.netPayable, paystubData.currency)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Footer disclaimer */}
-                <div className="pt-2 text-[10px] text-slate-500 text-center border-t border-slate-800/80">
-                  This is a system-generated paystub issued by Dayflow Enterprise HRMS. All statutory taxes & provident funds are deposited to the designated government authorities.
-                </div>
-              </div>
-            ) : null}
           </div>
         </div>
       )}
