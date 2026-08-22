@@ -179,7 +179,6 @@ export default function PayrollPage() {
       if (res.ok) {
         const stub = data.paystubs || data;
         setPaystubData(stub);
-        setSelectedUserForPayslip(stub.user);
       } else {
         toast.error(data.error || "Failed to compute paystub", "Error");
         setPaystubModalOpen(false);
