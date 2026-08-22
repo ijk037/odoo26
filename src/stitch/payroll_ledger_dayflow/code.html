@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Dayflow - Payroll Ledger</title>
+<!-- Google Fonts: Space Mono & JetBrains Mono -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&amp;family=Space+Mono:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-variant": "#dce3eb",
+                    "background": "#f6faff",
+                    "surface-tint": "#376847",
+                    "on-primary": "#ffffff",
+                    "primary-fixed-dim": "#9dd3aa",
+                    "secondary": "#994621",
+                    "on-tertiary-fixed-variant": "#604100",
+                    "inverse-surface": "#2a3137",
+                    "error-container": "#ffdad6",
+                    "on-primary-container": "#f6fff4",
+                    "on-tertiary": "#ffffff",
+                    "primary": "#346645",
+                    "on-secondary-fixed-variant": "#7a2f0b",
+                    "secondary-fixed": "#ffdbce",
+                    "on-tertiary-container": "#fffbff",
+                    "inverse-on-surface": "#eaf2fa",
+                    "outline": "#717971",
+                    "on-background": "#151d22",
+                    "on-secondary-fixed": "#370e00",
+                    "on-secondary": "#ffffff",
+                    "on-primary-fixed-variant": "#1d5031",
+                    "surface-bright": "#f6faff",
+                    "on-surface-variant": "#414942",
+                    "primary-fixed": "#b8efc5",
+                    "surface": "#f6faff",
+                    "on-tertiary-fixed": "#281900",
+                    "on-error": "#ffffff",
+                    "surface-dim": "#d3dbe3",
+                    "tertiary-container": "#9b6c00",
+                    "inverse-primary": "#9dd3aa",
+                    "secondary-fixed-dim": "#ffb598",
+                    "surface-container-low": "#edf4fd",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-container-highest": "#dce3eb",
+                    "surface-container-high": "#e1e9f1",
+                    "on-primary-fixed": "#00210e",
+                    "primary-container": "#4d7f5c",
+                    "surface-container": "#e7eff7",
+                    "on-surface": "#151d22",
+                    "tertiary-fixed-dim": "#fbbb49",
+                    "secondary-container": "#ff9569",
+                    "tertiary": "#7b5500",
+                    "error": "#ba1a1a",
+                    "outline-variant": "#c0c9bf",
+                    "on-secondary-container": "#762c08",
+                    "tertiary-fixed": "#ffdeac",
+                    "on-error-container": "#93000a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "unit": "4px",
+                    "md": "16px",
+                    "gutter": "16px",
+                    "margin": "24px",
+                    "xs": "4px",
+                    "xl": "48px",
+                    "lg": "24px",
+                    "sm": "8px"
+            },
+            "fontFamily": {
+                    "body-lg": ["JetBrains Mono"],
+                    "body-md": ["JetBrains Mono"],
+                    "label-sm": ["JetBrains Mono"],
+                    "label-bold": ["JetBrains Mono"],
+                    "display-lg": ["Space Mono"],
+                    "headline-sm": ["Space Mono"],
+                    "headline-md": ["Space Mono"]
+            },
+            "fontSize": {
+                    "body-lg": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                    "body-md": ["14px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                    "label-sm": ["11px", {"lineHeight": "1", "fontWeight": "500"}],
+                    "label-bold": ["12px", {"lineHeight": "1", "fontWeight": "700"}],
+                    "display-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-sm": ["18px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                    "headline-md": ["24px", {"lineHeight": "1.2", "fontWeight": "700"}]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .icon-fill-1 {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen font-body-md flex">
+<!-- SideNavBar (Shared Component) -->
+<nav class="hidden md:flex bg-surface dark:bg-surface-dim fixed left-0 top-0 h-full w-[240px] border-r-2 border-on-background shadow-[3px_3px_0px_0px_rgba(21,29,34,1)] flex-col p-gutter z-50">
+<!-- Header -->
+<div class="mb-xl flex flex-col gap-sm">
+<h1 class="font-display-lg text-display-lg text-primary dark:text-primary-fixed-dim uppercase tracking-tighter">Dayflow</h1>
+<p class="font-body-md text-body-md tracking-tight text-on-surface-variant">HR Systems</p>
+</div>
+<!-- Navigation Links -->
+<div class="flex flex-col gap-sm flex-grow">
+<!-- Dashboard -->
+<a class="flex items-center gap-sm p-sm rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high transition-all hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[5px_5px_0px_0px_rgba(21,29,34,1)] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none font-body-md text-body-md tracking-tight" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span>Dashboard</span>
+</a>
+<!-- Profile -->
+<a class="flex items-center gap-sm p-sm rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high transition-all hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[5px_5px_0px_0px_rgba(21,29,34,1)] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none font-body-md text-body-md tracking-tight" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span>Profile</span>
+</a>
+<!-- Attendance -->
+<a class="flex items-center gap-sm p-sm rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high transition-all hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[5px_5px_0px_0px_rgba(21,29,34,1)] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none font-body-md text-body-md tracking-tight" href="#">
+<span class="material-symbols-outlined" data-icon="event_available">event_available</span>
+<span>Attendance</span>
+</a>
+<!-- Leave Management -->
+<a class="flex items-center gap-sm p-sm rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high transition-all hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[5px_5px_0px_0px_rgba(21,29,34,1)] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none font-body-md text-body-md tracking-tight" href="#">
+<span class="material-symbols-outlined" data-icon="holiday_village">holiday_village</span>
+<span>Leave Management</span>
+</a>
+<!-- Payroll Ledger (ACTIVE) -->
+<a class="flex items-center gap-sm p-sm rounded-DEFAULT font-body-md text-body-md tracking-tight bg-primary-container text-on-primary-container border-2 border-on-background shadow-[2px_2px_0px_0px_rgba(21,29,34,1)] -translate-x-0.5 -translate-y-0.5 hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[5px_5px_0px_0px_rgba(21,29,34,1)] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none transition-transform" href="#">
+<span class="material-symbols-outlined icon-fill-1" data-icon="payments" data-weight="fill">payments</span>
+<span>Payroll Ledger</span>
+</a>
+<!-- Team Directory -->
+<a class="flex items-center gap-sm p-sm rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high transition-all hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[5px_5px_0px_0px_rgba(21,29,34,1)] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none font-body-md text-body-md tracking-tight" href="#">
+<span class="material-symbols-outlined" data-icon="groups">groups</span>
+<span>Team Directory</span>
+</a>
+</div>
+<!-- Footer / CTA -->
+<div class="mt-auto pt-md border-t-2 border-on-background flex flex-col gap-sm">
+<div class="flex items-center gap-sm text-on-surface-variant font-label-bold text-label-bold uppercase">
+<span class="material-symbols-outlined text-[16px]" data-icon="fingerprint">fingerprint</span>
+<span>EMP-042</span>
+</div>
+<button class="w-full py-sm border-2 border-on-background bg-surface-container-lowest text-on-background font-label-bold text-label-bold uppercase shadow-[2px_2px_0px_0px_rgba(21,29,34,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[4px_4px_0px_0px_rgba(21,29,34,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all">
+                Log Out
+            </button>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 flex flex-col min-w-0 md:ml-[240px]">
+<!-- TopAppBar (Shared Component) -->
+<header class="hidden md:flex justify-between items-center h-[64px] px-margin bg-surface dark:bg-surface-dim docked full-width top-0 sticky z-40 shadow-[0px_3px_0px_0px_rgba(21,29,34,1)] border-b-2 border-on-background">
+<!-- Left: Search placeholder / Title mapping -->
+<div class="flex items-center gap-md">
+<span class="font-headline-sm text-headline-sm text-on-background">Itemization View</span>
+</div>
+<!-- Navigation / Tabs (if applicable for top bar) -->
+<div class="flex gap-md">
+<span class="text-primary font-label-bold text-label-bold uppercase border-b-2 border-primary pb-1 transition-all duration-100 hover:text-secondary cursor-pointer">Employee</span>
+<span class="text-on-surface-variant font-label-bold text-label-bold uppercase pb-1 transition-all duration-100 hover:text-secondary cursor-pointer">Admin/HR</span>
+</div>
+<!-- Trailing Actions -->
+<div class="flex items-center gap-md">
+<span class="font-label-bold text-label-bold uppercase text-on-surface-variant">Role: Employee</span>
+<button class="text-on-background hover:text-secondary transition-all">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-on-background hover:text-secondary transition-all">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="w-8 h-8 rounded-DEFAULT border-2 border-on-background bg-secondary-container overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A small pixel art portrait of an employee in a 16-bit cozy gaming style, vibrant colors, clear outlines, set against a light background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDV8aKvO8msp0vqV1MwNfV5BVb2As7BRCLljgjvMC-T4i9ZevhyA1gBDPyy7Qauej0-0WX2ddFZ2bc9Khpabry5e72Dm51Et7NOzc0mbGfLX64_OciIuWUHBwT0EeJYk2lNGdPtnolf6fi4xd3Tjq3ADCyHIeFXLKBJ-_1NBOO9SW3jZ2ff5gpFtmcyW8Rjd8EjY2h4SIuDHQ4yNfRFOTHA_bbfGduIlZog90PhnBHkn4XMLpEuY_E9QA"/>
+</div>
+</div>
+</header>
+<!-- Canvas -->
+<main class="flex-1 p-margin overflow-y-auto">
+<!-- Header Section -->
+<div class="mb-lg flex justify-between items-end border-b-2 border-on-background pb-sm">
+<div>
+<h2 class="font-display-lg text-display-lg text-on-background uppercase">Payslip Ledger</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-xs">October 2023 | Ref: PAY-OCT-8842</p>
+</div>
+<div class="bg-tertiary-fixed-dim text-on-tertiary-fixed border-2 border-on-background px-md py-xs shadow-[2px_2px_0px_0px_rgba(21,29,34,1)] font-label-bold text-label-bold uppercase">
+                    Status: Processed
+                </div>
+</div>
+<!-- Ledger Card -->
+<div class="bg-surface-container-lowest border-2 border-on-background shadow-[5px_5px_0px_0px_rgba(21,29,34,1)] mb-xl p-md md:p-lg flex flex-col gap-lg relative">
+<!-- Decorative Pin -->
+<div class="absolute -top-3 left-1/2 transform -translate-x-1/2 w-6 h-6 rounded-full bg-error border-2 border-on-background shadow-[1px_1px_0px_0px_rgba(21,29,34,1)] z-10 hidden md:block"></div>
+<!-- Two-Column Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-lg border-b-2 border-on-background pb-lg">
+<!-- Earnings Column -->
+<div class="flex flex-col">
+<div class="bg-tertiary-fixed-dim text-on-tertiary-fixed border-2 border-on-background p-sm mb-sm flex justify-between items-center shadow-[2px_2px_0px_0px_rgba(21,29,34,1)]">
+<h3 class="font-headline-sm text-headline-sm uppercase">Earnings</h3>
+<span class="material-symbols-outlined" data-icon="add_circle">add_circle</span>
+</div>
+<div class="border-2 border-on-background border-b-0">
+<!-- Row 1 -->
+<div class="flex justify-between items-center border-b-2 border-on-background p-sm h-[48px] hover:bg-surface-container-high transition-colors">
+<span class="font-body-md text-body-md">Basic Pay</span>
+<span class="font-body-md text-body-md font-bold">$4,500.00</span>
+</div>
+<!-- Row 2 -->
+<div class="flex justify-between items-center border-b-2 border-on-background p-sm h-[48px] hover:bg-surface-container-high transition-colors">
+<span class="font-body-md text-body-md">HRA (House Rent)</span>
+<span class="font-body-md text-body-md font-bold">$1,200.00</span>
+</div>
+<!-- Row 3 -->
+<div class="flex justify-between items-center border-b-2 border-on-background p-sm h-[48px] hover:bg-surface-container-high transition-colors">
+<span class="font-body-md text-body-md">Special Allowance</span>
+<span class="font-body-md text-body-md font-bold">$800.00</span>
+</div>
+<!-- Row 4 -->
+<div class="flex justify-between items-center border-b-2 border-on-background p-sm h-[48px] hover:bg-surface-container-high transition-colors bg-primary-fixed text-on-primary-fixed">
+<span class="font-body-md text-body-md flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]" data-icon="star">star</span>
+                                    Performance Bonus
+                                </span>
+<span class="font-body-md text-body-md font-bold">$500.00</span>
+</div>
+</div>
+<div class="flex justify-between items-center border-2 border-on-background p-sm bg-surface mt-sm shadow-[2px_2px_0px_0px_rgba(21,29,34,1)]">
+<span class="font-label-bold text-label-bold uppercase">Gross Earnings</span>
+<span class="font-headline-sm text-headline-sm">$7,000.00</span>
+</div>
+</div>
+<!-- Deductions Column -->
+<div class="flex flex-col">
+<div class="bg-error-container text-on-error-container border-2 border-on-background p-sm mb-sm flex justify-between items-center shadow-[2px_2px_0px_0px_rgba(21,29,34,1)]">
+<h3 class="font-headline-sm text-headline-sm uppercase">Deductions</h3>
+<span class="material-symbols-outlined" data-icon="do_not_disturb_on">do_not_disturb_on</span>
+</div>
+<div class="border-2 border-on-background border-b-0">
+<!-- Row 1 -->
+<div class="flex justify-between items-center border-b-2 border-on-background p-sm h-[48px] hover:bg-surface-container-high transition-colors">
+<span class="font-body-md text-body-md">Provident Fund (PF)</span>
+<span class="font-body-md text-body-md text-error font-bold">-$250.00</span>
+</div>
+<!-- Row 2 -->
+<div class="flex justify-between items-center border-b-2 border-on-background p-sm h-[48px] hover:bg-surface-container-high transition-colors">
+<span class="font-body-md text-body-md">Professional Tax (PT)</span>
+<span class="font-body-md text-body-md text-error font-bold">-$50.00</span>
+</div>
+<!-- Row 3 -->
+<div class="flex justify-between items-center border-b-2 border-on-background p-sm h-[48px] hover:bg-surface-container-high transition-colors">
+<span class="font-body-md text-body-md flex items-center gap-xs">
+                                    LOP Days (1)
+                                </span>
+<span class="font-body-md text-body-md text-error font-bold">-$150.00</span>
+</div>
+<!-- Empty Fill Row to match height visually -->
+<div class="flex justify-between items-center border-b-2 border-on-background p-sm h-[48px] bg-surface-container-lowest">
+<span class="font-body-md text-body-md text-outline">--</span>
+<span class="font-body-md text-body-md text-outline">--</span>
+</div>
+</div>
+<div class="flex justify-between items-center border-2 border-on-background p-sm bg-surface mt-sm shadow-[2px_2px_0px_0px_rgba(21,29,34,1)]">
+<span class="font-label-bold text-label-bold uppercase">Total Deductions</span>
+<span class="font-headline-sm text-headline-sm text-error">-$450.00</span>
+</div>
+</div>
+</div>
+<!-- Bottom Net Pay Box -->
+<div class="bg-primary-container text-on-primary-container border-2 border-on-background p-md md:p-lg flex flex-col md:flex-row justify-between items-center gap-md shadow-[4px_4px_0px_0px_rgba(21,29,34,1)] relative overflow-hidden">
+<!-- Decorative subtle grid pattern -->
+<div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(circle, #f6fff4 1px, transparent 1px); background-size: 8px 8px;"></div>
+<div class="z-10 text-center md:text-left">
+<span class="font-label-bold text-label-bold uppercase tracking-widest block mb-xs">Final Payable Salary</span>
+<span class="font-display-lg text-display-lg flex items-center gap-sm justify-center md:justify-start">
+<span class="text-[40px] leading-none">$</span>6,550.00
+                        </span>
+</div>
+<button class="z-10 bg-surface-container-lowest text-on-background border-2 border-on-background px-md py-sm font-label-bold text-label-bold uppercase flex items-center gap-sm shadow-[2px_2px_0px_0px_rgba(21,29,34,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[4px_4px_0px_0px_rgba(21,29,34,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all">
+<span class="material-symbols-outlined text-[20px]" data-icon="save">save</span>
+                        Download Payslip PDF
+                    </button>
+</div>
+</div>
+</main>
+</div>
+</body></html>

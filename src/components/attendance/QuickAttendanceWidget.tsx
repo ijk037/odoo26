@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { LogIn, LogOut, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import { LogIn, LogOut, Clock, CheckCircle2 } from "lucide-react";
 import { formatTime } from "@/lib/utils";
+import { useToast } from "@/context/ToastContext";
 
 interface AttendanceRecord {
   id: string;
@@ -17,6 +18,8 @@ export function QuickAttendanceWidget({ onAttendanceChange }: { onAttendanceChan
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [time, setTime] = useState<string>("");
+  const [elapsed, setElapsed] = useState<string>("");
+  const { toast } = useToast();
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -28,9 +31,21 @@ export function QuickAttendanceWidget({ onAttendanceChange }: { onAttendanceChan
           second: "2-digit",
         })
       );
+
+      if (todayRecord?.checkIn && !todayRecord?.checkOut) {
+        const checkInTime = new Date(todayRecord.checkIn).getTime();
+        const diffMs = Math.max(0, now.getTime() - checkInTime);
+        const totalSecs = Math.floor(diffMs / 1000);
+        const hours = Math.floor(totalSecs / 3600);
+        const minutes = Math.floor((totalSecs % 3600) / 60);
+        const seconds = totalSecs % 60;
+        setElapsed(
+          `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+        );
+      }
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [todayRecord]);
 
   const fetchTodayStatus = useCallback(async () => {
     try {
@@ -58,19 +73,34 @@ export function QuickAttendanceWidget({ onAttendanceChange }: { onAttendanceChan
 
   const handleToggleAttendance = async () => {
     setLoading(true);
+    const action = todayRecord?.checkIn && !todayRecord?.checkOut ? "checkout" : "checkin";
     try {
       const res = await fetch("/api/attendance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: todayRecord?.checkIn ? "checkout" : "checkin" }),
+        body: JSON.stringify({ action }),
       });
+      const data = await res.json();
       if (res.ok) {
-        const data = await res.json();
         setTodayRecord(data.record);
+        if (action === "checkin") {
+          toast.success(
+            `Checked in successfully at ${formatTime(data.record.checkIn)}! Status: ${data.record.status}`,
+            "Check-In Recorded"
+          );
+        } else {
+          toast.success(
+            `Checked out! Total working time: ${data.record.workingHours} hours.`,
+            "Check-Out Recorded"
+          );
+        }
         if (onAttendanceChange) onAttendanceChange();
+      } else {
+        toast.error(data.error || "Attendance action failed", "Notice");
       }
     } catch (err) {
       console.error("Failed to update attendance:", err);
+      toast.error("Network communication error. Please try again.", "Error");
     } finally {
       setLoading(false);
     }
@@ -81,41 +111,41 @@ export function QuickAttendanceWidget({ onAttendanceChange }: { onAttendanceChan
 
   if (fetching) {
     return (
-      <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-400">
-        <Clock className="w-3.5 h-3.5 animate-spin" />
-        <span>Loading status...</span>
+      <div className="flex items-center gap-1.5 px-2 py-1 bg-[#FAF7F2] border border-[#151D22] text-[11px] font-mono text-[#717971]">
+        <Clock className="w-3.5 h-3.5 animate-spin text-[#346645]" />
+        <span>Syncing...</span>
       </div>
     );
   }
 
   return (
-    <div className="flex items-center gap-3 bg-slate-900/90 border border-slate-800/80 rounded-xl p-1.5 px-3 shadow-inner">
-      <div className="flex items-center gap-2 text-xs font-mono text-slate-300">
-        <Clock className="w-3.5 h-3.5 text-indigo-400" />
+    <div className="flex items-center gap-2 bg-[#F4EFEA] border-2 border-[#151D22] p-1 px-2.5 shadow-[2px_2px_0px_0px_rgba(21,29,34,1)] font-mono text-xs">
+      <div className="hidden sm:flex items-center gap-1.5 font-bold text-[#151D22]">
+        <Clock className="w-3.5 h-3.5 text-[#346645]" />
         <span>{time || "Live Clock"}</span>
       </div>
 
-      <div className="h-4 w-px bg-slate-800" />
+      <div className="hidden sm:block h-3.5 w-px bg-[#151D22]" />
 
       {isCompleted ? (
-        <div className="flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg">
-          <CheckCircle2 className="w-3.5 h-3.5" />
-          <span>Completed ({todayRecord?.workingHours}h)</span>
+        <div className="flex items-center gap-1 text-[11px] font-bold text-[#346645] bg-[#d6edd9] border border-[#346645] px-2 py-0.5">
+          <CheckCircle2 className="w-3 h-3 shrink-0" />
+          <span>Shift Logged ({todayRecord?.workingHours}h)</span>
         </div>
       ) : isCheckedIn ? (
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-lg">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>In: {formatTime(todayRecord?.checkIn)}</span>
+          <div className="flex items-center gap-1 text-[11px] font-bold text-[#994621] bg-[#ffdbce] border border-[#994621] px-2 py-0.5">
+            <span className="w-2 h-2 rounded-full bg-[#346645] animate-pulse" />
+            <span>{elapsed || `In: ${formatTime(todayRecord?.checkIn)}`}</span>
           </div>
           <button
             type="button"
             disabled={loading}
             onClick={handleToggleAttendance}
-            className="flex items-center gap-1.5 text-xs font-medium bg-rose-600 hover:bg-rose-500 text-white px-2.5 py-1 rounded-lg transition-colors shadow-sm disabled:opacity-50"
+            className="retro-btn-danger px-2.5 py-0.5 text-[11px] font-bold uppercase flex items-center gap-1"
           >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>{loading ? "Checking out..." : "Check Out"}</span>
+            <LogOut className="w-3 h-3" />
+            <span>{loading ? "..." : "Clock Out"}</span>
           </button>
         </div>
       ) : (
@@ -123,10 +153,10 @@ export function QuickAttendanceWidget({ onAttendanceChange }: { onAttendanceChan
           type="button"
           disabled={loading}
           onClick={handleToggleAttendance}
-          className="flex items-center gap-1.5 text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1 rounded-lg transition-all shadow-sm shadow-indigo-600/30 disabled:opacity-50"
+          className="retro-btn-primary px-2.5 py-0.5 text-[11px] font-bold uppercase flex items-center gap-1"
         >
-          <LogIn className="w-3.5 h-3.5" />
-          <span>{loading ? "Checking in..." : "Check In"}</span>
+          <LogIn className="w-3 h-3" />
+          <span>{loading ? "..." : "Clock In"}</span>
         </button>
       )}
     </div>
